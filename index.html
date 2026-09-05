@@ -116,7 +116,7 @@
     @keyframes titleBounce { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
     @keyframes blink { 0% { opacity: 0.35; } 100% { opacity: 1; } }
 
-    /* メニュー / ロビー / リザルト */
+    /* メニュー */
     #mode-select-view, #online-lobby-view, #result-view {
       background: rgba(15, 23, 42, 0.92);
       backdrop-filter: blur(8px);
@@ -216,6 +216,30 @@
       z-index: 20;
     }
 
+    /* 「メニューに戻る」ボタン */
+    #btn-race-exit {
+      position: absolute;
+      top: 94px;
+      right: 12px;
+      width: 100px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #f8fafc;
+      padding: 6px 0;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      z-index: 50;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      pointer-events: auto;
+      transition: background 0.1s;
+    }
+    #btn-race-exit:active { background: rgba(239, 68, 68, 0.85); }
+
+    /* アイテムスロット */
     #item-slot {
       position: absolute;
       right: 18px;
@@ -264,10 +288,7 @@
       transition: all 0.15s ease;
       z-index: 30;
     }
-    #drift-status-badge.active {
-      opacity: 1;
-      transform: translateX(-50%) scale(1);
-    }
+    #drift-status-badge.active { opacity: 1; transform: translateX(-50%) scale(1); }
 
     #star-flash-overlay {
       position: absolute;
@@ -399,8 +420,10 @@
       <div class="hud">
         <span class="rank-badge" id="rank-val">1st</span> / <span id="total-racers">5</span><br>
         LAP: <b id="lap-val" style="color:#38bdf8;">1/3</b> | SPEED: <b id="speed-val">0 km/h</b><br>
-        <span id="course-name-hud" style="color:#facc15; font-weight:bold;">🏁 クラシック</span>
+        <span id="course-name-hud" style="color:#facc15; font-weight:bold;">🏁 クラシック</span> | <span id="status-val" style="color:#38bdf8;">通常</span>
       </div>
+
+      <button id="btn-race-exit">🚪 メニューへ</button>
 
       <canvas id="minimap-canvas" width="100" height="75"></canvas>
 
@@ -700,7 +723,13 @@ const COURSES = {
       { x: 2950, y: 700,  angle: -Math.PI / 4 },
       { x: 1200, y: 450,  angle: Math.PI },
       { x: 1150, y: 1200, angle: Math.PI / 6 }
-    ]
+    ],
+    decorations: [
+      { char: "🌳", x: 600, y: 1800 }, { char: "🌲", x: 1600, y: 1850 },
+      { char: "🌸", x: 2500, y: 1750 }, { char: "🌳", x: 2600, y: 800 },
+      { char: "🌲", x: 1200, y: 700 },  { char: "🌳", x: 600, y: 650 }
+    ],
+    obstacles: []
   },
   desert: {
     name: "🏜️ 砂漠オアシス",
@@ -709,61 +738,92 @@ const COURSES = {
     curb: "#f59e0b",
     particleChar: "✨",
     points: [
-      { x: 600,  y: 2000 },
-      { x: 1800, y: 2000 },
-      { x: 3000, y: 2000 },
-      { x: 3300, y: 1500 },
-      { x: 3100, y: 900 },
-      { x: 2400, y: 600 },
-      { x: 1600, y: 800 },
-      { x: 1000, y: 500 },
-      { x: 500,  y: 900 },
-      { x: 400,  y: 1500 }
+      { x: 500,  y: 2000 },
+      { x: 1200, y: 2000 },
+      { x: 1600, y: 1750 },
+      { x: 2000, y: 2200 },
+      { x: 2500, y: 1850 },
+      { x: 3000, y: 2100 },
+      { x: 3300, y: 1600 },
+      { x: 3000, y: 1100 },
+      { x: 3300, y: 700 },
+      { x: 2600, y: 500 },
+      { x: 2000, y: 600 },
+      { x: 1500, y: 400 },
+      { x: 900,  y: 550 },
+      { x: 500,  y: 850 },
+      { x: 950,  y: 1250 },
+      { x: 400,  y: 1550 }
     ],
     sectors: [
-      { x: 3300, y: 1500, r: 500, id: 1 },
-      { x: 1600, y: 800,  r: 500, id: 2 },
-      { x: 400,  y: 1500, r: 500, id: 3 },
-      { x: 600,  y: 2000, r: 100, id: 0 }
+      { x: 3000, y: 2100, r: 500, id: 1 },
+      { x: 2000, y: 600,  r: 500, id: 2 },
+      { x: 950,  y: 1250, r: 500, id: 3 },
+      { x: 500,  y: 2000, r: 100, id: 0 }
     ],
     itemLocations: [
-      { x: 1500, y: 2000, angle: 0 },
-      { x: 3200, y: 1200, angle: -Math.PI / 3 },
-      { x: 1300, y: 650,  angle: Math.PI },
-      { x: 450,  y: 1200, angle: Math.PI / 2 }
+      { x: 1400, y: 1900, angle: 0 },
+      { x: 3150, y: 900,  angle: -Math.PI / 3 },
+      { x: 1750, y: 500,  angle: Math.PI },
+      { x: 700,  y: 1050, angle: Math.PI / 3 }
+    ],
+    decorations: [
+      { char: "🐪", x: 800, y: 1800 }, { char: "🌴", x: 1800, y: 1950 },
+      { char: "🏛️", x: 2800, y: 1700 }, { char: "🏺", x: 2800, y: 800 },
+      { char: "🌴", x: 1750, y: 800 },  { char: "🦎", x: 700, y: 700 },
+      { char: "🐪", x: 1200, y: 1400 }
+    ],
+    obstacles: [
+      { type: "cactus", char: "🌵", x: 1650, y: 1950, radius: 20, bounce: true },
+      { type: "cactus", char: "🌵", x: 2450, y: 2050, radius: 20, bounce: true },
+      { type: "tornado", char: "🌪️", x: 3100, y: 1400, radius: 25, moveType: "cross", minX: 2900, maxX: 3300, vx: 1.2 },
+      { type: "scorpion", char: "🦂", x: 1100, y: 480, radius: 18, moveType: "patrol", minX: 1000, maxX: 1300, vx: 0.9 }
     ]
   },
   ocean: {
-    name: "🌊 トロピカル海",
+    name: "🌊 南国の海",
     bg: "#0891b2",
     road: "#713f12",
     curb: "#38bdf8",
     particleChar: "💧",
     points: [
       { x: 600,  y: 2100 },
-      { x: 1800, y: 2100 },
-      { x: 3100, y: 2100 },
-      { x: 3300, y: 1700 },
-      { x: 2900, y: 1300 },
-      { x: 3200, y: 800 },
-      { x: 2700, y: 400 },
-      { x: 1800, y: 500 },
-      { x: 1000, y: 400 },
-      { x: 400,  y: 900 },
-      { x: 600,  y: 1400 },
-      { x: 400,  y: 1800 }
+      { x: 1300, y: 2100 },
+      { x: 1300, y: 1650 },
+      { x: 1900, y: 1650 },
+      { x: 1900, y: 2100 },
+      { x: 2700, y: 2100 },
+      { x: 3200, y: 1750 },
+      { x: 2800, y: 1300 },
+      { x: 3200, y: 900 },
+      { x: 2700, y: 500 },
+      { x: 1900, y: 650 },
+      { x: 1300, y: 450 },
+      { x: 700,  y: 650 },
+      { x: 1100, y: 1150 },
+      { x: 500,  y: 1600 }
     ],
     sectors: [
-      { x: 3300, y: 1700, r: 500, id: 1 },
-      { x: 1800, y: 500,  r: 500, id: 2 },
-      { x: 600,  y: 1400, r: 500, id: 3 },
+      { x: 2700, y: 2100, r: 500, id: 1 },
+      { x: 1900, y: 650,  r: 500, id: 2 },
+      { x: 1100, y: 1150, r: 500, id: 3 },
       { x: 600,  y: 2100, r: 100, id: 0 }
     ],
     itemLocations: [
-      { x: 1600, y: 2100, angle: 0 },
-      { x: 3050, y: 1050, angle: -Math.PI / 4 },
-      { x: 1400, y: 450,  angle: Math.PI },
-      { x: 500,  y: 1600, angle: Math.PI / 2 }
+      { x: 1600, y: 1650, angle: 0 },
+      { x: 3000, y: 1100, angle: -Math.PI / 3 },
+      { x: 1600, y: 550,  angle: Math.PI },
+      { x: 800,  y: 1380, angle: Math.PI / 3 }
+    ],
+    decorations: [
+      { char: "🐬", x: 900, y: 1900 }, { char: "🏝️", x: 2300, y: 1850 },
+      { char: "⛵", x: 3400, y: 1400 }, { char: "🐠", x: 2300, y: 950 },
+      { char: "🐡", x: 1600, y: 950 },  { char: "🏝️", x: 500, y: 450 }
+    ],
+    obstacles: [
+      { type: "crab", char: "🦀", x: 1600, y: 2100, radius: 18, moveType: "cross", minX: 1400, maxX: 1800, vx: 1.0 },
+      { type: "jellyfish", char: "🪼", x: 3000, y: 1550, radius: 22, moveType: "float", minY: 1450, maxY: 1650, vy: 0.8 },
+      { type: "anchor", char: "⚓", x: 1320, y: 1630, radius: 24, bounce: true }
     ]
   },
   mansion: {
@@ -771,34 +831,53 @@ const COURSES = {
     bg: "#090a1a",
     road: "#312e81",
     curb: "#a855f7",
-    particleChar: "🔥",
+    particleChar: "🟣",
     points: [
       { x: 500,  y: 2000 },
-      { x: 1400, y: 2000 },
-      { x: 2000, y: 1700 },
-      { x: 2600, y: 2100 },
-      { x: 3200, y: 1700 },
-      { x: 3100, y: 1100 },
-      { x: 2500, y: 1200 },
-      { x: 2200, y: 600 },
-      { x: 1500, y: 700 },
-      { x: 1100, y: 450 },
-      { x: 500,  y: 600 },
-      { x: 400,  y: 1200 },
-      { x: 900,  y: 1500 },
-      { x: 500,  y: 1700 }
+      { x: 1000, y: 2000 },
+      { x: 1000, y: 1700 },
+      { x: 650,  y: 1700 },
+      { x: 650,  y: 1400 },
+      { x: 1200, y: 1400 },
+      { x: 1600, y: 1800 },
+      { x: 2100, y: 1800 },
+      { x: 2500, y: 2100 },
+      { x: 3100, y: 1900 },
+      { x: 3100, y: 1450 },
+      { x: 2600, y: 1450 },
+      { x: 2600, y: 950 },
+      { x: 3100, y: 950 },
+      { x: 3100, y: 500 },
+      { x: 2300, y: 500 },
+      { x: 1800, y: 800 },
+      { x: 1300, y: 450 },
+      { x: 750,  y: 550 },
+      { x: 450,  y: 950 },
+      { x: 900,  y: 1150 },
+      { x: 450,  y: 1550 }
     ],
     sectors: [
-      { x: 3200, y: 1700, r: 500, id: 1 },
-      { x: 1500, y: 700,  r: 500, id: 2 },
-      { x: 900,  y: 1500, r: 500, id: 3 },
+      { x: 2500, y: 2100, r: 500, id: 1 },
+      { x: 2300, y: 500,  r: 500, id: 2 },
+      { x: 900,  y: 1150, r: 500, id: 3 },
       { x: 500,  y: 2000, r: 100, id: 0 }
     ],
     itemLocations: [
-      { x: 1100, y: 2000, angle: 0 },
-      { x: 2900, y: 1400, angle: -Math.PI / 3 },
-      { x: 1850, y: 650,  angle: Math.PI },
-      { x: 650,  y: 1350, angle: Math.PI / 4 }
+      { x: 820,  y: 1700, angle: 0 },
+      { x: 2850, y: 1450, angle: -Math.PI / 2 },
+      { x: 1800, y: 500,  angle: Math.PI },
+      { x: 670,  y: 1050, angle: Math.PI / 3 }
+    ],
+    decorations: [
+      { char: "🪦", x: 800, y: 1850 }, { char: "⚰️", x: 1400, y: 1600 },
+      { char: "🏰", x: 2300, y: 1400 }, { char: "🕯️", x: 2850, y: 1200 },
+      { char: "🦇", x: 1550, y: 650 },  { char: "🪦", x: 600, y: 750 }
+    ],
+    obstacles: [
+      { type: "ghost", char: "👻", x: 1850, y: 1800, radius: 24, moveType: "circle", cx: 1850, cy: 1800, cr: 60, speed: 0.03 },
+      { type: "web", char: "🕸️", x: 2620, y: 1200, radius: 26, slow: true },
+      { type: "pumpkin", char: "🎃", x: 1000, y: 1980, radius: 20, explode: true },
+      { type: "ghost", char: "👻", x: 1550, y: 480, radius: 24, moveType: "circle", cx: 1550, cy: 480, cr: 50, speed: 0.04 }
     ]
   }
 };
@@ -811,8 +890,9 @@ let itemBoxes = [];
 const ITEM_TYPES = ["🍏", "🍌", "🍄", "⭐", "🧼", "🌫️"];
 const worldObjects = [];
 const ambientParticles = [];
+let currentObstacles = [];
 
-function buildItemBoxes(courseKey) {
+function buildStageData(courseKey) {
   itemBoxes = [];
   const c = COURSES[courseKey] || COURSES.classic;
   c.itemLocations.forEach((loc, groupIdx) => {
@@ -828,6 +908,7 @@ function buildItemBoxes(courseKey) {
       });
     });
   });
+  currentObstacles = (c.obstacles || []).map(o => ({ ...o, initialX: o.x, initialY: o.y, angle: 0 }));
 }
 
 // ==========================================
@@ -913,7 +994,7 @@ function createBot(preset, startX, startY, initWp = 1) {
 function setupAttractDemo() {
   gameMode = "DEMO";
   isCountingDown = false;
-  buildItemBoxes(currentCourseKey);
+  buildStageData(currentCourseKey);
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const startP = curCourse.points[0];
 
@@ -930,10 +1011,9 @@ function setupAttractDemo() {
   demoCamera.targetZoom = CINEMATIC_MODES[0].zoom;
 }
 
-// コース切り替え安全関数
 function switchCourse(newKey) {
   currentCourseKey = newKey;
-  buildItemBoxes(currentCourseKey);
+  buildStageData(currentCourseKey);
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const startP = curCourse.points[0];
 
@@ -951,7 +1031,7 @@ function switchCourse(newKey) {
 
 function setupRacersForMode(mode) {
   activeBots = [];
-  buildItemBoxes(currentCourseKey);
+  buildStageData(currentCourseKey);
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const startP = curCourse.points[0];
 
@@ -971,15 +1051,25 @@ function setupRacersForMode(mode) {
   smoothCamX = player.x;
   smoothCamY = player.y;
 
-  document.getElementById("lap-val").textContent = "1/3";
-  document.getElementById("course-name-hud").textContent = curCourse.name;
+  const lapEl = document.getElementById("lap-val");
+  if (lapEl) lapEl.textContent = "1/3";
+  const courseHudEl = document.getElementById("course-name-hud");
+  if (courseHudEl) courseHudEl.textContent = curCourse.name;
   lapDurations = [0, 0, 0];
 
+  const exitBtn = document.getElementById("btn-race-exit");
+  if (exitBtn) {
+    if (mode === "ONLINE_2P") exitBtn.classList.add("hidden");
+    else exitBtn.classList.remove("hidden");
+  }
+
   if (mode === "SOLO") {
-    document.getElementById("total-racers").textContent = "1";
+    const totalEl = document.getElementById("total-racers");
+    if (totalEl) totalEl.textContent = "1";
   } else if (mode === "VS_CPU") {
     activeBots = CPU_PRESETS.map((p, i) => createBot(p, startP.x - 80 - i * 60, startP.y - 40 + (i % 2) * 80));
-    document.getElementById("total-racers").textContent = "5";
+    const totalEl = document.getElementById("total-racers");
+    if (totalEl) totalEl.textContent = "5";
   } else if (mode === "ONLINE_2P") {
     if (isHost) {
       player.x = startP.x; player.y = startP.y - 30;
@@ -989,7 +1079,8 @@ function setupRacersForMode(mode) {
       remotePlayer.x = startP.x; remotePlayer.y = startP.y - 30;
     }
     activeBots = CPU_PRESETS.slice(0, 3).map((p, i) => createBot(p, startP.x - 120 - i * 60, startP.y - 40 + (i % 2) * 80));
-    document.getElementById("total-racers").textContent = "5";
+    const totalEl = document.getElementById("total-racers");
+    if (totalEl) totalEl.textContent = "5";
   }
 }
 
@@ -1067,6 +1158,14 @@ bindButtonAction(document.getElementById("btn-back-menu"), () => {
   currentScene = "MENU";
   onlineLobbyView.classList.add("hidden");
   modeSelectView.classList.remove("hidden");
+});
+
+bindButtonAction(document.getElementById("btn-race-exit"), () => {
+  stopEngineSoundImmediately();
+  raceUI.classList.add("hidden");
+  modeSelectView.classList.remove("hidden");
+  currentScene = "MENU";
+  setupAttractDemo();
 });
 
 bindButtonAction(document.getElementById("btn-restart-game"), () => {
@@ -1252,7 +1351,7 @@ function handleNetworkData(data) {
   } else if (data.type === "hit") {
     if (player.starTimer <= 0) {
       safeRun(playCrashSound);
-      player.spinTimer = 50;
+      player.spinTimer = 45;
       player.particles.push({ x: player.x, y: player.y, char: "💥", size: 30, life: 25 });
     }
   } else if (data.type === "smokeAttack") {
@@ -1279,85 +1378,90 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-const activeTouches = new Map();
-
-function updateTouchSteering() {
-  if (currentScene !== "RACING" || isCountingDown) {
-    player.steerInput = 0;
-    player.isDrifting = false;
-    driftBadge.classList.remove("active");
-    return;
-  }
-
-  const validTouches = [];
-  const slotRect = itemSlotEl.getBoundingClientRect();
-
-  activeTouches.forEach(t => {
-    if (t.x >= slotRect.left - 20 && t.x <= slotRect.right + 20 &&
-        t.y >= slotRect.top - 20 && t.y <= slotRect.bottom + 20) {
-      return;
-    }
-    validTouches.push(t);
-  });
-
-  if (validTouches.length === 0) {
-    if (player.isDrifting) triggerDriftRelease();
-    player.steerInput = 0;
-    player.isDrifting = false;
-    driftBadge.classList.remove("active");
-    return;
-  }
-
-  validTouches.sort((a, b) => a.startTime - b.startTime);
-  const primary = validTouches[0];
-  const steerDir = primary.x < (width * 0.5) ? -1 : 1;
-
-  if (validTouches.length >= 2) {
-    player.isDrifting = true;
-    player.steerInput = steerDir;
-    driftBadge.classList.add("active");
-  } else {
-    if (player.isDrifting) triggerDriftRelease();
-    player.isDrifting = false;
-    player.steerInput = steerDir;
-    driftBadge.classList.remove("active");
-  }
-}
-
 function triggerDriftRelease() {
   if (player.driftCharge > 50) player.boostTimer = 60;
   else if (player.driftCharge > 20) player.boostTimer = 30;
   player.driftCharge = 0;
 }
 
-window.addEventListener("touchstart", (e) => {
-  if (currentScene !== "RACING") return;
-  const now = Date.now();
-  for (let t of e.changedTouches) {
-    activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY, startTime: now });
+function handleAllTouches(e) {
+  if (currentScene !== "RACING" || isCountingDown) {
+    player.steerInput = 0;
+    player.isDrifting = false;
+    player.driftCharge = 0;
+    if (driftBadge) driftBadge.classList.remove("active");
+    return;
   }
-  updateTouchSteering();
+
+  const touches = e.touches;
+  if (!touches || touches.length === 0) {
+    if (player.isDrifting) triggerDriftRelease();
+    player.steerInput = 0;
+    player.isDrifting = false;
+    if (driftBadge) driftBadge.classList.remove("active");
+    return;
+  }
+
+  const slotRect = itemSlotEl.getBoundingClientRect();
+  const exitBtn = document.getElementById("btn-race-exit");
+  const exitRect = exitBtn ? exitBtn.getBoundingClientRect() : null;
+
+  const validTouches = [];
+  for (let i = 0; i < touches.length; i++) {
+    const t = touches[i];
+    if (t.clientX >= slotRect.left - 20 && t.clientX <= slotRect.right + 20 &&
+        t.clientY >= slotRect.top - 20 && t.clientY <= slotRect.bottom + 20) {
+      continue;
+    }
+    if (exitRect && t.clientX >= exitRect.left - 10 && t.clientX <= exitRect.right + 10 &&
+        t.clientY >= exitRect.top - 10 && t.clientY <= exitRect.bottom + 10) {
+      continue;
+    }
+    validTouches.push(t);
+  }
+
+  if (validTouches.length === 0) {
+    if (player.isDrifting) triggerDriftRelease();
+    player.steerInput = 0;
+    player.isDrifting = false;
+    if (driftBadge) driftBadge.classList.remove("active");
+    return;
+  }
+
+  const primary = validTouches[0];
+  const steerDir = primary.clientX < (width * 0.5) ? -1 : 1;
+
+  if (validTouches.length >= 2) {
+    player.isDrifting = true;
+    player.steerInput = steerDir;
+    if (driftBadge) driftBadge.classList.add("active");
+  } else {
+    if (player.isDrifting) triggerDriftRelease();
+    player.isDrifting = false;
+    player.steerInput = steerDir;
+    if (driftBadge) driftBadge.classList.remove("active");
+  }
+}
+
+window.addEventListener("touchstart", (e) => {
+  if (currentScene === "RACING") handleAllTouches(e);
 }, { passive: false });
 
 window.addEventListener("touchmove", (e) => {
-  if (currentScene !== "RACING") return;
-  for (let t of e.changedTouches) {
-    const existing = activeTouches.get(t.identifier);
-    activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY, startTime: existing ? existing.startTime : Date.now() });
+  if (currentScene === "RACING") {
+    // スモークの画面擦り拭き取り（サッと素早く晴れる）
+    if (smokeIntensity > 0) smokeIntensity = Math.max(0, smokeIntensity - 0.04);
+    handleAllTouches(e);
   }
-  if (smokeIntensity > 0) smokeIntensity = Math.max(0, smokeIntensity - 0.02);
-  updateTouchSteering();
 }, { passive: false });
 
-function endTouch(e) {
-  if (currentScene !== "RACING") return;
-  for (let t of e.changedTouches) {
-    activeTouches.delete(t.identifier);
-  }
-  updateTouchSteering();
-}
-window.addEventListener("touchend", endTouch, { passive: false });
-window.addEventListener("touchcancel", endTouch, { passive: false });
+window.addEventListener("touchend", (e) => {
+  if (currentScene === "RACING") handleAllTouches(e);
+}, { passive: false });
+
+window.addEventListener("touchcancel", (e) => {
+  if (currentScene === "RACING") handleAllTouches(e);
+}, { passive: false });
 
 function useItem() {
   if (currentScene !== "RACING" || isCountingDown || !player.heldItem || player.isRoulette || player.spinTimer > 0) return;
@@ -1420,7 +1524,7 @@ window.addEventListener("keydown", (e) => {
   if (!isCountingDown) {
     if (e.code === "ArrowLeft" || e.code === "KeyA") player.steerInput = -1;
     if (e.code === "ArrowRight" || e.code === "KeyD") player.steerInput = 1;
-    if (e.code === "Space") { player.isDrifting = true; driftBadge.classList.add("active"); }
+    if (e.code === "Space") { player.isDrifting = true; if (driftBadge) driftBadge.classList.add("active"); }
     if (e.code === "KeyE" || e.code === "ShiftLeft") useItem();
   }
 });
@@ -1431,7 +1535,7 @@ window.addEventListener("keyup", (e) => {
   if (e.code === "Space") {
     triggerDriftRelease();
     player.isDrifting = false;
-    driftBadge.classList.remove("active");
+    if (driftBadge) driftBadge.classList.remove("active");
   }
 });
 
@@ -1524,7 +1628,8 @@ function checkRacerLap(racer, isPlayer = false) {
       racer.sectorsPassed.clear();
 
       if (isPlayer) {
-        document.getElementById("lap-val").textContent = `${Math.min(racer.lap, 3)}/3`;
+        const lapEl = document.getElementById("lap-val");
+        if (lapEl) lapEl.textContent = `${Math.min(racer.lap, 3)}/3`;
       }
 
       if (racer.lap > 3) {
@@ -1545,18 +1650,27 @@ function triggerPlayerGoal() {
     const racers = getSortedRacers();
     const myRank = racers.findIndex(r => r.isMe) + 1;
     const suffix = ["st", "nd", "rd", "th", "th"][myRank - 1] || "th";
-    document.getElementById("result-title").textContent = `${myRank}${suffix} PLACE!`;
+    
+    const resTitle = document.getElementById("result-title");
+    if (resTitle) resTitle.textContent = `${myRank}${suffix} PLACE!`;
 
-    document.getElementById("podium-d1").textContent = racers[0] ? (racers[0].racer.face || "😎") : "😎";
-    document.getElementById("podium-d2").textContent = racers[1] ? (racers[1].racer.face || "🦊") : "🦊";
-    document.getElementById("podium-d3").textContent = racers[2] ? (racers[2].racer.face || "🤖") : "🤖";
+    const d1 = document.getElementById("podium-d1");
+    const d2 = document.getElementById("podium-d2");
+    const d3 = document.getElementById("podium-d3");
+    if (d1) d1.textContent = racers[0] ? (racers[0].racer.face || "😎") : "😎";
+    if (d2) d2.textContent = racers[1] ? (racers[1].racer.face || "🦊") : "🦊";
+    if (d3) d3.textContent = racers[2] ? (racers[2].racer.face || "🤖") : "🤖";
 
     const minLap = Math.min(...lapDurations.filter(d => d > 0));
-    document.getElementById("lap1-time").innerHTML = formatTime(lapDurations[0]) + (lapDurations[0] === minLap ? '<span class="fastest-tag">FASTEST</span>' : '');
-    document.getElementById("lap2-time").innerHTML = formatTime(lapDurations[1]) + (lapDurations[1] === minLap ? '<span class="fastest-tag">FASTEST</span>' : '');
-    document.getElementById("lap3-time").innerHTML = formatTime(lapDurations[2]) + (lapDurations[2] === minLap ? '<span class="fastest-tag">FASTEST</span>' : '');
+    const l1 = document.getElementById("lap1-time");
+    const l2 = document.getElementById("lap2-time");
+    const l3 = document.getElementById("lap3-time");
+    const tt = document.getElementById("total-time");
+    if (l1) l1.innerHTML = formatTime(lapDurations[0]) + (lapDurations[0] === minLap ? '<span class="fastest-tag">FASTEST</span>' : '');
+    if (l2) l2.innerHTML = formatTime(lapDurations[1]) + (lapDurations[1] === minLap ? '<span class="fastest-tag">FASTEST</span>' : '');
+    if (l3) l3.innerHTML = formatTime(lapDurations[2]) + (lapDurations[2] === minLap ? '<span class="fastest-tag">FASTEST</span>' : '');
     const totalMs = lapDurations.reduce((a, b) => a + b, 0);
-    document.getElementById("total-time").textContent = formatTime(totalMs);
+    if (tt) tt.textContent = formatTime(totalMs);
 
     resultView.classList.remove("hidden");
   }, 1400);
@@ -1571,12 +1685,18 @@ function updateBotAI(bot) {
     bot.spinTimer--;
     bot.angle += 0.22;
     bot.speed *= 0.92;
+    if (bot.spinTimer === 0) {
+      const wpIdx = (bot.nextCheckpoint || 0) % curPoints.length;
+      const targetWp = curPoints[wpIdx] || curPoints[0];
+      bot.angle = Math.atan2(targetWp.y - bot.y, targetWp.x - bot.x);
+    }
   } else {
     const wpIdx = (bot.nextCheckpoint || 0) % curPoints.length;
     const targetWp = curPoints[wpIdx] || curPoints[0];
 
-    const wobbleX = Math.sin(frameCount * 0.05 + bot.id.charCodeAt(3)) * 35;
-    const wobbleY = Math.cos(frameCount * 0.05 + bot.id.charCodeAt(3)) * 35;
+    const wobbleSeed = (bot.id ? bot.id.charCodeAt(bot.id.length - 1) : 0);
+    const wobbleX = Math.sin(frameCount * 0.05 + wobbleSeed) * 35;
+    const wobbleY = Math.cos(frameCount * 0.05 + wobbleSeed) * 35;
     const dx = (targetWp.x + wobbleX) - bot.x;
     const dy = (targetWp.y + wobbleY) - bot.y;
     const targetAngle = Math.atan2(dy, dx);
@@ -1679,7 +1799,8 @@ function calculateRankings() {
   const racers = getSortedRacers();
   const myRank = racers.findIndex(r => r.isMe) + 1;
   const suffix = ["st", "nd", "rd", "th", "th"][myRank - 1] || "th";
-  document.getElementById("rank-val").textContent = `${myRank}${suffix}`;
+  const rVal = document.getElementById("rank-val");
+  if (rVal) rVal.textContent = `${myRank}${suffix}`;
 }
 
 // ==========================================
@@ -1722,27 +1843,39 @@ function update() {
   }
 
   const cfg = KARTS[myKartKey];
+  const curCourse = COURSES[currentCourseKey] || COURSES.classic;
+  const curPoints = curCourse.points;
 
   if (player.starTimer > 0) {
     const starHue = (frameCount * 20) % 360;
-    starFlashOverlay.style.opacity = "0.7";
-    starFlashOverlay.style.boxShadow = `inset 0 0 60px hsla(${starHue}, 100%, 55%, 0.6)`;
-  } else {
+    if (starFlashOverlay) {
+      starFlashOverlay.style.opacity = "0.7";
+      starFlashOverlay.style.boxShadow = `inset 0 0 60px hsla(${starHue}, 100%, 55%, 0.6)`;
+    }
+  } else if (starFlashOverlay) {
     starFlashOverlay.style.opacity = "0";
   }
 
+  // スモーク持続時間（約6〜7秒）
   if (smokeIntensity > 0) {
-    smokeIntensity = Math.max(0, smokeIntensity - 0.0007);
-    smokeOverlayEl.style.opacity = smokeIntensity;
-  } else {
+    smokeIntensity = Math.max(0, smokeIntensity - 0.0025);
+    if (smokeOverlayEl) smokeOverlayEl.style.opacity = smokeIntensity;
+  } else if (smokeOverlayEl) {
     smokeOverlayEl.style.opacity = 0;
   }
 
   if (!isCountingDown && !player.finished) {
     if (player.spinTimer > 0) {
       player.spinTimer--;
-      player.angle += 0.20;
+      player.angle += 0.22;
       player.speed *= 0.92;
+      
+      if (player.spinTimer === 0) {
+        const pWpIdx = (player.nextCheckpoint || 0) % curPoints.length;
+        const targetWp = curPoints[pWpIdx] || curPoints[0];
+        player.angle = Math.atan2(targetWp.y - player.y, targetWp.x - player.x);
+        smoothCamAngle = player.angle;
+      }
     } else {
       const turnMul = player.isDrifting ? 1.35 : 1.0;
       player.angle += player.steerInput * cfg.turnSpeed * turnMul * (player.speed / (cfg.maxSpeed || 1));
@@ -1792,8 +1925,6 @@ function update() {
 
   checkRacerLap(player, true);
 
-  const curCourse = COURSES[currentCourseKey] || COURSES.classic;
-  const curPoints = curCourse.points;
   const pWpIdx = (player.nextCheckpoint || 0) % curPoints.length;
   const targetWp = curPoints[pWpIdx] || curPoints[0];
 
@@ -1804,6 +1935,45 @@ function update() {
   if (gameMode === "VS_CPU" || (gameMode === "ONLINE_2P" && isHost)) {
     activeBots.forEach(updateBotAI);
   }
+
+  // 障害物の挙動（蜘蛛の巣の減速を0.65倍に緩和してスムーズ脱出）
+  currentObstacles.forEach((obs, obsIdx) => {
+    if (obs.moveType === "cross" || obs.moveType === "patrol") {
+      obs.x += obs.vx;
+      if (obs.x < obs.minX || obs.x > obs.maxX) obs.vx *= -1;
+    } else if (obs.moveType === "float") {
+      obs.y += obs.vy;
+      if (obs.y < obs.minY || obs.y > obs.maxY) obs.vy *= -1;
+    } else if (obs.moveType === "circle") {
+      obs.angle += obs.speed;
+      obs.x = obs.cx + Math.cos(obs.angle) * obs.cr;
+      obs.y = obs.cy + Math.sin(obs.angle) * obs.cr;
+    }
+
+    const d = Math.hypot(player.x - obs.x, player.y - obs.y);
+    if (d < (obs.radius || 20) + 16) {
+      if (player.starTimer > 0) {
+        safeRun(playCrashSound);
+        player.particles.push({ x: obs.x, y: obs.y, char: "✨", size: 32, life: 22 });
+        currentObstacles.splice(obsIdx, 1);
+      } else {
+        if (obs.bounce) {
+          player.speed *= 0.35; // サボテン・イカリはそのまま
+          player.angle += Math.PI * 0.8;
+          safeRun(playCrashSound);
+          player.particles.push({ x: obs.x, y: obs.y, char: "💢", size: 28, life: 20 });
+        } else if (obs.slow) {
+          player.speed *= 0.65; // 蜘蛛の巣は足を取られつつ前進して約1秒で脱出可能に
+          player.particles.push({ x: player.x, y: player.y, char: "🕸️", size: 24, life: 15 });
+        } else {
+          safeRun(playCrashSound);
+          player.spinTimer = 45; // スピン時間もそのまま維持
+          player.particles.push({ x: player.x, y: player.y, char: "💥", size: 30, life: 25 });
+          if (obs.explode) currentObstacles.splice(obsIdx, 1);
+        }
+      }
+    }
+  });
 
   itemBoxes.forEach(box => {
     if (box.active) {
@@ -1917,7 +2087,9 @@ function update() {
 
   calculateRankings();
 
-  document.getElementById("speed-val").textContent = (player.speed * 22).toFixed(0) + " km/h";
+  const spdEl = document.getElementById("speed-val");
+  if (spdEl) spdEl.textContent = (player.speed * 22).toFixed(0) + " km/h";
+  
   let st = "通常";
   if (isCountingDown) st = "🚦 カウントダウン！";
   else if (smokeIntensity > 0.2) st = "🌫️ 視界不良！";
@@ -1925,7 +2097,9 @@ function update() {
   else if (player.starTimer > 0) st = "⭐ 無敵スター！";
   else if (player.boostTimer > 0) st = "🚀 ブースト！";
   else if (player.isDrifting) st = player.driftCharge > 50 ? "🔥 ウルトラ！" : "✨ チャージ";
-  document.getElementById("status-val").textContent = st;
+  
+  const stEl = document.getElementById("status-val");
+  if (stEl) stEl.textContent = st;
 }
 
 // ==========================================
@@ -1973,7 +2147,6 @@ function renderCrystalItemBox(ctx, box) {
   ctx.strokeStyle = `hsla(${hue}, 100%, 75%, 0.9)`;
   ctx.lineWidth = 2.5;
 
-  // roundRect を廃止し、標準の rect で安全描画
   ctx.beginPath();
   ctx.rect(-size, -size, size * 2, size * 2);
   ctx.fill();
@@ -2006,7 +2179,6 @@ function renderCrystalItemBox(ctx, box) {
 function render() {
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
 
-  // 1. カメラ変換前に画面全体をコース色で塗りつぶす（黒い画面割れを完全解消）
   ctx.fillStyle = curCourse.bg;
   ctx.fillRect(0, 0, width, height);
 
@@ -2022,7 +2194,6 @@ function render() {
     ctx.translate(-demoCamera.x, -demoCamera.y);
   }
 
-  // 2. カメラ内でも広大に背景を塗りつぶす
   ctx.fillStyle = curCourse.bg;
   ctx.fillRect(-2000, -2000, WORLD_WIDTH + 4000, WORLD_HEIGHT + 4000);
 
@@ -2056,6 +2227,22 @@ function render() {
     ctx.fillRect(8, i + 8, 8, 8);
   }
   ctx.restore();
+
+  // にぎやかし絵文字
+  (curCourse.decorations || []).forEach(dec => {
+    ctx.font = "32px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(dec.char, dec.x, dec.y);
+  });
+
+  // 障害物絵文字
+  currentObstacles.forEach(obs => {
+    ctx.font = "30px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(obs.char, obs.x, obs.y);
+  });
 
   // 環境パーティクル
   ambientParticles.forEach(p => {
@@ -2162,7 +2349,7 @@ function render() {
 
     let myFace = "😎";
     if (player.spinTimer > 0) myFace = "😵‍💫";
-    else if (smokeIntensity > 0.3) myFace = "😰";
+    else if (smokeIntensity > 0.2) myFace = "😰";
     else if (player.starTimer > 0) myFace = "🤩";
     else if (player.boostTimer > 0) myFace = "😆";
     else if (player.isDrifting) myFace = player.driftCharge > 50 ? "🔥" : "😏";
@@ -2221,7 +2408,6 @@ function renderMinimap() {
   mCtx.stroke();
 }
 
-// 堅牢化メインループ
 function gameLoop() {
   try {
     update();
