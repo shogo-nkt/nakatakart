@@ -682,7 +682,7 @@ function playCountdownGo() { playTone(880, "triangle", 0.45, 0.35); }
 function playStampPop() { playTone(880, "sine", 0.15, 0.2); }
 
 // ==========================================
-// 1. カート＆4コース構成
+// 1. カート＆4コース構成（お化け屋敷のゴール前交差を完全解消）
 // ==========================================
 const KARTS = {
   standard:  { name: "クラシック", icon: "🏎️", maxSpeed: 2.3, accelRate: 0.035, turnSpeed: 0.024, friction: 0.985 },
@@ -837,51 +837,52 @@ const COURSES = {
     road: "#312e81",
     curb: "#a855f7",
     particleChar: "🟣",
+    // 交差を廃止し、明確なワンウェイ・サーキットへ再設計
     points: [
-      { x: 500,  y: 2000 },
-      { x: 1000, y: 2000 },
-      { x: 1000, y: 1700 },
-      { x: 650,  y: 1700 },
-      { x: 650,  y: 1400 },
-      { x: 1200, y: 1400 },
-      { x: 1600, y: 1800 },
-      { x: 2100, y: 1800 },
-      { x: 2500, y: 2100 },
-      { x: 3100, y: 1900 },
-      { x: 3100, y: 1450 },
-      { x: 2600, y: 1450 },
-      { x: 2600, y: 950 },
-      { x: 3100, y: 950 },
-      { x: 3100, y: 500 },
-      { x: 2300, y: 500 },
-      { x: 1800, y: 800 },
-      { x: 1300, y: 450 },
-      { x: 750,  y: 550 },
-      { x: 450,  y: 950 },
-      { x: 900,  y: 1150 },
-      { x: 450,  y: 1550 }
+      { x: 500,  y: 2050 }, // 0: スタート
+      { x: 1100, y: 2050 }, // 1
+      { x: 1350, y: 1700 }, // 2
+      { x: 1000, y: 1400 }, // 3
+      { x: 1450, y: 1400 }, // 4
+      { x: 1800, y: 1750 }, // 5
+      { x: 2300, y: 1850 }, // 6
+      { x: 2750, y: 2100 }, // 7
+      { x: 3200, y: 1800 }, // 8
+      { x: 3100, y: 1350 }, // 9: ヘアピン1
+      { x: 2600, y: 1350 }, // 10
+      { x: 2600, y: 950 },  // 11
+      { x: 3100, y: 950 },  // 12: ヘアピン2
+      { x: 3100, y: 500 },  // 13
+      { x: 2300, y: 500 },  // 14
+      { x: 1800, y: 750 },  // 15
+      { x: 1300, y: 450 },  // 16
+      { x: 750,  y: 550 },  // 17
+      { x: 450,  y: 950 },  // 18
+      { x: 800,  y: 1150 }, // 19
+      { x: 350,  y: 1450 }, // 20: 最終コーナー（外側を大きく旋回）
+      { x: 350,  y: 1850 }  // 21: スタート直前ストレート
     ],
     sectors: [
-      { x: 2500, y: 2100, r: 500, id: 1 },
+      { x: 2750, y: 2100, r: 500, id: 1 },
       { x: 2300, y: 500,  r: 500, id: 2 },
-      { x: 900,  y: 1150, r: 500, id: 3 },
-      { x: 500,  y: 2000, r: 100, id: 0 }
+      { x: 800,  y: 1150, r: 500, id: 3 },
+      { x: 500,  y: 2050, r: 100, id: 0 }
     ],
     itemLocations: [
-      { x: 820,  y: 1700, angle: 0 },
-      { x: 2850, y: 1450, angle: -Math.PI / 2 },
+      { x: 1200, y: 1850, angle: 0 },
+      { x: 2850, y: 1350, angle: -Math.PI / 2 },
       { x: 1800, y: 500,  angle: Math.PI },
-      { x: 670,  y: 1050, angle: Math.PI / 3 }
+      { x: 550,  y: 1050, angle: Math.PI / 3 }
     ],
     decorations: [
-      { char: "🪦", x: 800, y: 1850 }, { char: "⚰️", x: 1400, y: 1600 },
-      { char: "🏰", x: 2300, y: 1400 }, { char: "🕯️", x: 2850, y: 1200 },
+      { char: "🪦", x: 800, y: 1850 }, { char: "⚰️", x: 1550, y: 1600 },
+      { char: "🏰", x: 2300, y: 1400 }, { char: "🕯️", x: 2850, y: 1150 },
       { char: "🦇", x: 1550, y: 650 },  { char: "🪦", x: 600, y: 750 }
     ],
     obstacles: [
-      { type: "ghost", char: "👻", x: 1850, y: 1800, radius: 24, moveType: "circle", cx: 1850, cy: 1800, cr: 60, speed: 0.03 },
-      { type: "web", char: "🕸️", x: 2620, y: 1200, radius: 26, slow: true },
-      { type: "pumpkin", char: "🎃", x: 1000, y: 1980, radius: 20, explode: true },
+      { type: "ghost", char: "👻", x: 1950, y: 1800, radius: 24, moveType: "circle", cx: 1950, cy: 1800, cr: 60, speed: 0.03 },
+      { type: "web", char: "🕸️", x: 2600, y: 1150, radius: 26, slow: true },
+      { type: "pumpkin", char: "🎃", x: 1100, y: 2050, radius: 20, explode: true },
       { type: "ghost", char: "👻", x: 1550, y: 480, radius: 24, moveType: "circle", cx: 1550, cy: 480, cr: 50, speed: 0.04 }
     ]
   }
@@ -971,10 +972,10 @@ const remotePlayer = {
 };
 
 const CPU_PRESETS = [
-  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.38, steerAggro: 0.034 },
-  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.58, steerAggro: 0.031 },
-  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 2.28, steerAggro: 0.037 },
-  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 2.34, steerAggro: 0.032 }
+  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.38, steerAggro: 0.038 },
+  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.58, steerAggro: 0.035 },
+  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 2.28, steerAggro: 0.042 },
+  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 2.34, steerAggro: 0.036 }
 ];
 
 let activeBots = [];
@@ -1004,7 +1005,8 @@ function createBot(preset, startX, startY, initWp = 1) {
     spinTimer: 0, boostTimer: 0, finished: false,
     personality: ["steady", "aggressive", "item", "blocker"][Math.floor(Math.random()*4)],
     personalityCooldown: 0,
-    heldItem: null, itemCooldown: 120 + Math.floor(Math.random() * 160), particles: []
+    heldItem: null, itemCooldown: 120 + Math.floor(Math.random() * 160), particles: [],
+    stuckCounter: 0 // 旋回スタック防止用
   };
 }
 
@@ -1517,7 +1519,6 @@ window.addEventListener("touchcancel", (e) => {
   if (currentScene === "RACING") handleAllTouches(e);
 }, { passive: false });
 
-// スマホで安全にアイテムを発射する関数（例外クラッシュ完全防止）
 function useItem(e) {
   if (e && e.preventDefault) e.preventDefault();
   if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
@@ -1825,15 +1826,15 @@ function triggerPlayerGoal() {
   }, 1400);
 }
 
-// ボット進行用の順路限定プロジェクション（ショートカット・逆走を完全排除）
+// ボット進行用：現在目指すWP基準のローカル投影
 function getRoadProjectionLocal(px, py, hintWpIdx) {
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const points = curCourse.points;
   const n = points.length;
-  let best = { distSq: Infinity, x: px, y: py, segIdx: hintWpIdx, t: 0 };
+  let best = { distSq: Infinity, x: px, y: py, segIdx: (hintWpIdx - 1 + n) % n, t: 0 };
   
-  // 現在目指しているWPの前後のセグメント（4区間）だけを探索し、隣の通路への誤判定を防止
-  for (let offset = -2; offset <= 2; offset++) {
+  // 直近前後のセグメントのみを探索し、隣の通路へのジャンプを完全排除
+  for (let offset = -2; offset <= 1; offset++) {
     const i = (hintWpIdx + offset + n) % n;
     const a = points[i];
     const b = points[(i + 1) % n];
@@ -1893,10 +1894,9 @@ function getSmoothBotTarget(bot) {
     ty = points[idx].y;
   }
 
-  // 順路のWPへ引き戻す重み
   const wp = points[hintWp] || points[0];
   const wpDist = Math.hypot(bot.x - wp.x, bot.y - wp.y);
-  const wpWeight = wpDist < 160 ? 0.12 : 0.04;
+  const wpWeight = wpDist < 160 ? 0.15 : 0.05;
   tx = tx * (1 - wpWeight) + wp.x * wpWeight;
   ty = ty * (1 - wpWeight) + wp.y * wpWeight;
 
@@ -1955,6 +1955,7 @@ function updateBotAI(bot) {
   if (isCountingDown) return;
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const curPoints = curCourse.points;
+  const n = curPoints.length;
 
   if (bot.spinTimer > 0) {
     bot.spinTimer--;
@@ -1967,7 +1968,7 @@ function updateBotAI(bot) {
   } else {
     const target = getSmoothBotTarget(bot);
     const wobbleSeed = (bot.id ? bot.id.charCodeAt(bot.id.length - 1) : 0);
-    const wobble = Math.sin(frameCount * 0.035 + wobbleSeed) * 6;
+    const wobble = Math.sin(frameCount * 0.035 + wobbleSeed) * 5;
     const dx = (target.x + Math.cos(bot.angle + Math.PI / 2) * wobble) - bot.x;
     const dy = (target.y + Math.sin(bot.angle + Math.PI / 2) * wobble) - bot.y;
     const targetAngle = Math.atan2(dy, dx);
@@ -1976,16 +1977,29 @@ function updateBotAI(bot) {
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
 
-    const projNow = getRoadProjectionLocal(bot.x, bot.y, target.segIdx);
+    // 順方向とのズレを監視（ぐるぐる旋回のスタック検知）
+    const projNow = getRoadProjectionLocal(bot.x, bot.y, bot.nextCheckpoint || 1);
     const segA = curPoints[projNow.segIdx];
-    const segB = curPoints[(projNow.segIdx + 1) % curPoints.length];
+    const segB = curPoints[(projNow.segIdx + 1) % n];
     const roadAngle = Math.atan2(segB.y - segA.y, segB.x - segA.x);
     let roadDiff = roadAngle - bot.angle;
     while (roadDiff < -Math.PI) roadDiff += Math.PI * 2;
     while (roadDiff > Math.PI) roadDiff -= Math.PI * 2;
 
-    const steeringDiff = Math.abs(angleDiff) > Math.PI * 0.67 ? roadDiff : angleDiff;
-    const turnBoost = Math.min(1.35, 1 + Math.abs(steeringDiff) * 0.60);
+    // 道路と逆を向いて旋回し続けていたら強制復帰
+    if (Math.abs(roadDiff) > Math.PI * 0.6) {
+      bot.stuckCounter = (bot.stuckCounter || 0) + 1;
+      if (bot.stuckCounter > 45) {
+        bot.angle = roadAngle;
+        bot.speed = 1.6;
+        bot.stuckCounter = 0;
+      }
+    } else {
+      bot.stuckCounter = 0;
+    }
+
+    const steeringDiff = Math.abs(angleDiff) > Math.PI * 0.65 ? roadDiff : angleDiff;
+    const turnBoost = Math.min(1.4, 1 + Math.abs(steeringDiff) * 0.65);
     const steerLimit = bot.steerAggro * turnBoost;
     bot.angle += Math.max(-steerLimit, Math.min(steerLimit, steeringDiff));
 
@@ -2001,8 +2015,8 @@ function updateBotAI(bot) {
     }
 
     const ca = curPoints[projNow.segIdx];
-    const cb = curPoints[(projNow.segIdx + 1) % curPoints.length];
-    const cc = curPoints[(projNow.segIdx + 2) % curPoints.length];
+    const cb = curPoints[(projNow.segIdx + 1) % n];
+    const cc = curPoints[(projNow.segIdx + 2) % n];
     const c1x = cb.x - ca.x, c1y = cb.y - ca.y;
     const c2x = cc.x - cb.x, c2y = cc.y - cb.y;
     const c1l = Math.hypot(c1x, c1y) || 1, c2l = Math.hypot(c2x, c2y) || 1;
@@ -2017,10 +2031,20 @@ function updateBotAI(bot) {
     if (bot.speed < maxSpd) bot.speed += 0.052;
     else bot.speed *= 0.965;
 
-    const wpIdx = (bot.nextCheckpoint || 0) % curPoints.length;
+    // チェックポイント判定（距離 または セグメント通過の検知）
+    const wpIdx = (bot.nextCheckpoint || 0) % n;
     const wp = curPoints[wpIdx] || curPoints[0];
-    if (Math.hypot(bot.x - wp.x, bot.y - wp.y) < 220) {
-      bot.nextCheckpoint = (wpIdx + 1) % curPoints.length;
+    const prevWp = curPoints[(wpIdx - 1 + n) % n];
+    
+    // セグメントに対する前進ベクトル計算
+    const segVecX = wp.x - prevWp.x;
+    const segVecY = wp.y - prevWp.y;
+    const toBotX = bot.x - wp.x;
+    const toBotY = bot.y - wp.y;
+    const dotPassed = toBotX * segVecX + toBotY * segVecY;
+
+    if (Math.hypot(bot.x - wp.x, bot.y - wp.y) < 230 || dotPassed > 0) {
+      bot.nextCheckpoint = (wpIdx + 1) % n;
     }
   }
 
@@ -2805,6 +2829,7 @@ function render() {
     ctx.fillText(p.char, p.x, p.y);
   });
 
+  // CPUボット
   activeBots.forEach(bot => {
     ctx.save();
     ctx.translate(bot.x, bot.y);
@@ -2825,6 +2850,7 @@ function render() {
     ctx.restore();
   });
 
+  // オンライン相手
   if (currentScene === "RACING" && gameMode === "ONLINE_2P" && remotePlayer.connected) {
     ctx.save();
     ctx.translate(remotePlayer.x, remotePlayer.y);
@@ -2845,6 +2871,7 @@ function render() {
     ctx.restore();
   }
 
+  // 自機プレイヤー
   if (currentScene === "RACING") {
     ctx.save();
     ctx.translate(player.x, player.y);
