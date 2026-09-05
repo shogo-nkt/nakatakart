@@ -894,6 +894,7 @@ let currentObstacles = [];
 
 function buildStageData(courseKey) {
   itemBoxes = [];
+  worldObjects.length = 0;
   const c = COURSES[courseKey] || COURSES.classic;
   c.itemLocations.forEach((loc, groupIdx) => {
     [-45, 0, 45].forEach((offset, subIdx) => {
@@ -929,7 +930,7 @@ const player = {
   x: 500, y: 2000,
   angle: 0, speed: 0, steerInput: 0,
   isDrifting: false, driftCharge: 0,
-  boostTimer: 0, starTimer: 0, spinTimer: 0,
+  boostTimer: 0, starTimer: 0, spinTimer: 0, webTimer: 0,
   heldItem: null, isRoulette: false,
   lap: 1, nextCheckpoint: 1,
   sectorsPassed: new Set(),
@@ -956,10 +957,10 @@ const remotePlayer = {
 };
 
 const CPU_PRESETS = [
-  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 1.90, steerAggro: 0.028 },
-  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.05, steerAggro: 0.025 },
-  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 1.75, steerAggro: 0.032 },
-  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 1.85, steerAggro: 0.026 }
+  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.01, steerAggro: 0.028 },
+  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.17, steerAggro: 0.025 },
+  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 1.86, steerAggro: 0.032 },
+  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 1.96, steerAggro: 0.026 }
 ];
 
 let activeBots = [];
@@ -987,7 +988,7 @@ function createBot(preset, startX, startY, initWp = 1) {
     lap: 1, nextCheckpoint: initWp,
     sectorsPassed: new Set(),
     spinTimer: 0, boostTimer: 0, finished: false,
-    heldItem: null, itemCooldown: 180 + Math.floor(Math.random() * 240)
+    heldItem: null, itemCooldown: 120 + Math.floor(Math.random() * 160)
   };
 }
 
@@ -1044,6 +1045,7 @@ function setupRacersForMode(mode) {
   player.starTimer = 0;
   player.boostTimer = 0;
   player.spinTimer = 0;
+  player.webTimer = 0;
   player.x = startP.x;
   player.y = startP.y;
 
@@ -1351,7 +1353,7 @@ function handleNetworkData(data) {
   } else if (data.type === "hit") {
     if (player.starTimer <= 0) {
       safeRun(playCrashSound);
-      player.spinTimer = 45;
+      player.spinTimer = 52;
       player.particles.push({ x: player.x, y: player.y, char: "💥", size: 30, life: 25 });
     }
   } else if (data.type === "smokeAttack") {
@@ -1695,8 +1697,8 @@ function updateBotAI(bot) {
     const targetWp = curPoints[wpIdx] || curPoints[0];
 
     const wobbleSeed = (bot.id ? bot.id.charCodeAt(bot.id.length - 1) : 0);
-    const wobbleX = Math.sin(frameCount * 0.05 + wobbleSeed) * 35;
-    const wobbleY = Math.cos(frameCount * 0.05 + wobbleSeed) * 35;
+    const wobbleX = Math.sin(frameCount * 0.05 + wobbleSeed) * 18;
+    const wobbleY = Math.cos(frameCount * 0.05 + wobbleSeed) * 18;
     const dx = (targetWp.x + wobbleX) - bot.x;
     const dy = (targetWp.y + wobbleY) - bot.y;
     const targetAngle = Math.atan2(dy, dx);
@@ -1734,7 +1736,7 @@ function updateBotAI(bot) {
       if (!bot.heldItem) {
         const pool = ["🍌", "🍏", "🍄", "🧼"];
         bot.heldItem = pool[Math.floor(Math.random() * pool.length)];
-        bot.itemCooldown = 200 + Math.floor(Math.random() * 200);
+        bot.itemCooldown = 140 + Math.floor(Math.random() * 140);
       }
     }
   });
@@ -1765,7 +1767,7 @@ function updateBotAI(bot) {
     
     const d = Math.hypot(bot.x - obj.x, bot.y - obj.y);
     if (d < obj.radius + 16) {
-      bot.spinTimer = 45;
+      bot.spinTimer = 52;
       worldObjects.splice(i, 1);
       if (conn) conn.send({ type: "removeObj", id: obj.id });
     }
@@ -1897,6 +1899,11 @@ function update() {
         topSpeed *= 0.45;
       }
 
+      if (player.webTimer > 0 && player.starTimer <= 0) {
+        player.webTimer--;
+        topSpeed *= 0.78;
+      }
+
       if (player.speed > topSpeed) player.speed *= cfg.friction;
       player.speed = Math.min(player.speed, topSpeed);
     }
@@ -1936,7 +1943,7 @@ function update() {
     activeBots.forEach(updateBotAI);
   }
 
-  // 障害物の挙動（蜘蛛の巣の減速を0.65倍に緩和してスムーズ脱出）
+  // 障害物の挙動
   currentObstacles.forEach((obs, obsIdx) => {
     if (obs.moveType === "cross" || obs.moveType === "patrol") {
       obs.x += obs.vx;
@@ -1958,16 +1965,19 @@ function update() {
         currentObstacles.splice(obsIdx, 1);
       } else {
         if (obs.bounce) {
-          player.speed *= 0.35; // サボテン・イカリはそのまま
+          player.speed *= 0.35;
           player.angle += Math.PI * 0.8;
           safeRun(playCrashSound);
           player.particles.push({ x: obs.x, y: obs.y, char: "💢", size: 28, life: 20 });
         } else if (obs.slow) {
-          player.speed *= 0.65; // 蜘蛛の巣は足を取られつつ前進して約1秒で脱出可能に
-          player.particles.push({ x: player.x, y: player.y, char: "🕸️", size: 24, life: 15 });
+          // 蜘蛛の巣: 連続で速度を掛け続けず、巣の中にいる間だけ最高速度を制限する方式に変更
+          player.webTimer = 30;
+          if (frameCount % 6 === 0) {
+            player.particles.push({ x: player.x, y: player.y, char: "🕸️", size: 22, life: 16 });
+          }
         } else {
           safeRun(playCrashSound);
-          player.spinTimer = 45; // スピン時間もそのまま維持
+          player.spinTimer = 52;
           player.particles.push({ x: player.x, y: player.y, char: "💥", size: 30, life: 25 });
           if (obs.explode) currentObstacles.splice(obsIdx, 1);
         }
@@ -2020,7 +2030,7 @@ function update() {
         if (conn) conn.send({ type: "removeObj", id: obj.id });
       } else {
         safeRun(playCrashSound);
-        player.spinTimer = 45;
+        player.spinTimer = 52;
         player.particles.push({ x: player.x, y: player.y, char: "💥", size: 30, life: 25 });
         worldObjects.splice(i, 1);
         if (conn) conn.send({ type: "removeObj", id: obj.id });
@@ -2066,17 +2076,59 @@ function update() {
     }
   }
 
+  const isDesertCourse = currentCourseKey === "desert";
   if (player.isDrifting && player.speed > 1.0) {
     player.driftCharge++;
-    player.particles.push({
-      x: player.x - Math.cos(player.angle) * 16, y: player.y - Math.sin(player.angle) * 16,
-      char: player.driftCharge > 50 ? "🔥" : (player.driftCharge > 20 ? "✨" : "💨"),
-      size: 14 + Math.random() * 6, life: 16
-    });
+    if (player.driftCharge > 50) {
+      player.particles.push({
+        x: player.x - Math.cos(player.angle) * 16, y: player.y - Math.sin(player.angle) * 16,
+        char: "🔥", size: 14 + Math.random() * 6, life: 16
+      });
+    } else if (player.driftCharge > 20) {
+      player.particles.push({
+        x: player.x - Math.cos(player.angle) * 16, y: player.y - Math.sin(player.angle) * 16,
+        char: "✨", size: 14 + Math.random() * 6, life: 16
+      });
+    } else if (isDesertCourse) {
+      // 砂漠コース: ドリフト時に通常より大きく黄色い砂埃が舞う
+      player.particles.push({
+        x: player.x - Math.cos(player.angle) * 18 + (Math.random() - 0.5) * 16,
+        y: player.y - Math.sin(player.angle) * 18 + (Math.random() - 0.5) * 16,
+        char: "🟡", size: 22 + Math.random() * 12, life: 24
+      });
+      player.particles.push({
+        x: player.x - Math.cos(player.angle) * 22 + (Math.random() - 0.5) * 20,
+        y: player.y - Math.sin(player.angle) * 22 + (Math.random() - 0.5) * 20,
+        char: "💨", size: 16 + Math.random() * 8, life: 20
+      });
+    } else {
+      player.particles.push({
+        x: player.x - Math.cos(player.angle) * 16, y: player.y - Math.sin(player.angle) * 16,
+        char: "💨", size: 14 + Math.random() * 6, life: 16
+      });
+    }
   } else if (player.speed > 0.6 && Math.random() < 0.25) {
     player.particles.push({
       x: player.x - Math.cos(player.angle) * 16, y: player.y - Math.sin(player.angle) * 16,
       char: "💨", size: 10, life: 12
+    });
+  }
+
+  // 海コース: コース端の水たまりを通過するとタイヤから水しぶきが飛ぶ
+  if (currentCourseKey === "ocean" && isOffRoad(player.x, player.y) && player.speed > 0.8 && Math.random() < 0.4) {
+    player.particles.push({
+      x: player.x - Math.cos(player.angle) * 14 + (Math.random() - 0.5) * 16,
+      y: player.y - Math.sin(player.angle) * 14 + (Math.random() - 0.5) * 16,
+      char: "💦", size: 16 + Math.random() * 8, life: 14
+    });
+  }
+
+  // お化け屋敷コース: カート後方にうっすらとしたテールランプの残光（紫の軌跡）
+  if (currentCourseKey === "mansion" && player.speed > 0.3 && frameCount % 2 === 0) {
+    player.particles.push({
+      x: player.x - Math.cos(player.angle) * 20 + (Math.random() - 0.5) * 6,
+      y: player.y - Math.sin(player.angle) * 20 + (Math.random() - 0.5) * 6,
+      char: "🟣", size: 9 + Math.random() * 4, life: 24
     });
   }
 
@@ -2096,6 +2148,7 @@ function update() {
   else if (player.spinTimer > 0) st = "😵‍💫 スピン！";
   else if (player.starTimer > 0) st = "⭐ 無敵スター！";
   else if (player.boostTimer > 0) st = "🚀 ブースト！";
+  else if (player.webTimer > 0) st = "🕸️ 巣に足を取られた！";
   else if (player.isDrifting) st = player.driftCharge > 50 ? "🔥 ウルトラ！" : "✨ チャージ";
   
   const stEl = document.getElementById("status-val");
