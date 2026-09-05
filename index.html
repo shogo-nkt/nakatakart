@@ -887,7 +887,7 @@ const WORLD_HEIGHT = 2400;
 const ROAD_WIDTH = 160;
 
 let itemBoxes = [];
-const ITEM_TYPES = ["🍏", "🍌", "🍄", "⭐", "🧼", "🌫️"];
+const ITEM_TYPES = ["🍏", "🍌", "🍄", "⭐", "🧼", "🌫️", "💩"];
 const worldObjects = [];
 const ambientParticles = [];
 let currentObstacles = [];
@@ -1506,6 +1506,19 @@ function useItem() {
       worldObjects.push(obj);
       if (conn) conn.send({ type: "spawnItem", obj });
     }
+  } else if (itm === "💩") {
+    const target = getHomingTarget(player);
+    if (target) {
+      const obj = {
+        id, type: "poop", ownerId: player.id, targetId: target.id,
+        immunityTimer: 15,
+        x: player.x + Math.cos(player.angle) * 35, y: player.y + Math.sin(player.angle) * 35,
+        vx: Math.cos(player.angle) * 5.2, vy: Math.sin(player.angle) * 5.2,
+        speed: 5.2, turnRate: 0.14, radius: 18, life: 240
+      };
+      worldObjects.push(obj);
+      if (conn) conn.send({ type: "spawnItem", obj });
+    }
   } else if (itm === "🌫️") {
     for (let i = 0; i < 8; i++) {
       player.particles.push({
@@ -1678,6 +1691,110 @@ function triggerPlayerGoal() {
   }, 1400);
 }
 
+function getRoadProjection(px, py) {
+  const curCourse = COURSES[currentCourseKey] || COURSES.classic;
+  const points = curCourse.points;
+  let best = { distSq: Infinity, x: px, y: py, segIdx: 0, t: 0 };
+  const p = { x: px, y: py };
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    const vx = b.x - a.x;
+    const vy = b.y - a.y;
+    const lenSq = vx * vx + vy * vy || 1;
+    const t = Math.max(0, Math.min(1, ((px - a.x) * vx + (py - a.y) * vy) / lenSq));
+    const x = a.x + vx * t;
+    const y = a.y + vy * t;
+    const dSq = (px - x) ** 2 + (py - y) ** 2;
+    if (dSq < best.distSq) best = { distSq: dSq, x, y, segIdx: i, t };
+  }
+  return best;
+}
+
+function getSmoothBotTarget(bot) {
+  const curCourse = COURSES[currentCourseKey] || COURSES.classic;
+  const points = curCourse.points;
+  const n = points.length;
+  const proj = getRoadProjection(bot.x, bot.y);
+  const baseIdx = proj.segIdx;
+  const a = points[baseIdx];
+  const b = points[(baseIdx + 1) % n];
+
+  // 道路中心線を少し先まで先読み。次のWPへ直線で突っ込むのを防ぐ。
+  const segmentDx = b.x - a.x;
+  const segmentDy = b.y - a.y;
+  const segmentLen = Math.hypot(segmentDx, segmentDy) || 1;
+  const lookAhead = Math.min(190, Math.max(80, bot.speed * 48 + 70));
+  let remaining = (1 - proj.t) * segmentLen + lookAhead;
+  let idx = (baseIdx + 1) % n;
+  let tx = proj.x;
+  let ty = proj.y;
+
+  while (remaining > 0) {
+    const from = points[idx];
+    const to = points[(idx + 1) % n];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.hypot(dx, dy) || 1;
+    if (remaining <= len) {
+      const t = remaining / len;
+      tx = from.x + dx * t;
+      ty = from.y + dy * t;
+      break;
+    }
+    remaining -= len;
+    idx = (idx + 1) % n;
+    tx = points[idx].x;
+    ty = points[idx].y;
+  }
+
+  // WP進行も維持するため、現在のnextCheckpoint付近ではその方向を少し強める。
+  const wpIdx = (bot.nextCheckpoint || 0) % n;
+  const wp = points[wpIdx] || points[0];
+  const wpDist = Math.hypot(bot.x - wp.x, bot.y - wp.y);
+  const wpWeight = wpDist < 260 ? 0.18 : 0.08;
+  tx = tx * (1 - wpWeight) + wp.x * wpWeight;
+  ty = ty * (1 - wpWeight) + wp.y * wpWeight;
+
+  // 道路端に近づいたら、中心線へ戻る力を追加。
+  const edgeDist = Math.sqrt(proj.distSq);
+  const roadHalf = ROAD_WIDTH / 2;
+  if (edgeDist > roadHalf * 0.48) {
+    const correction = Math.min(0.72, (edgeDist - roadHalf * 0.48) / (roadHalf * 0.52));
+    tx = tx * (1 - correction) + proj.x * correction;
+    ty = ty * (1 - correction) + proj.y * correction;
+  }
+
+  return { x: tx, y: ty, edgeDist };
+}
+
+function getRaceProgress(racer) {
+  const curCourse = COURSES[currentCourseKey] || COURSES.classic;
+  const n = curCourse.points.length;
+  const wpIdx = (racer.nextCheckpoint || 0) % n;
+  const wp = curCourse.points[wpIdx] || curCourse.points[0];
+  const prev = curCourse.points[(wpIdx - 1 + n) % n];
+  const segLen = Math.hypot(wp.x - prev.x, wp.y - prev.y) || 1;
+  const distToWp = Math.hypot(racer.x - wp.x, racer.y - wp.y);
+  return (racer.lap || 1) * 100000 + (racer.sectorsPassed ? racer.sectorsPassed.size : 0) * 1000 + wpIdx * 100 + Math.max(0, 100 - Math.min(100, distToWp / segLen * 100));
+}
+
+function getHomingTarget(owner) {
+  const racers = [player];
+  if (gameMode === "ONLINE_2P" && remotePlayer.connected) racers.push(remotePlayer);
+  activeBots.forEach(b => racers.push(b));
+  const ownerProgress = getRaceProgress(owner);
+  let best = null;
+  let bestDist = Infinity;
+  racers.forEach(r => {
+    if (!r || r === owner || r.finished) return;
+    if (getRaceProgress(r) <= ownerProgress + 1) return;
+    const d = Math.hypot(r.x - owner.x, r.y - owner.y);
+    if (d < bestDist) { bestDist = d; best = r; }
+  });
+  return best;
+}
+
 function updateBotAI(bot) {
   if (isCountingDown) return;
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
@@ -1688,26 +1805,25 @@ function updateBotAI(bot) {
     bot.angle += 0.22;
     bot.speed *= 0.92;
     if (bot.spinTimer === 0) {
-      const wpIdx = (bot.nextCheckpoint || 0) % curPoints.length;
-      const targetWp = curPoints[wpIdx] || curPoints[0];
-      bot.angle = Math.atan2(targetWp.y - bot.y, targetWp.x - bot.x);
+      const target = getSmoothBotTarget(bot);
+      bot.angle = Math.atan2(target.y - bot.y, target.x - bot.x);
     }
   } else {
-    const wpIdx = (bot.nextCheckpoint || 0) % curPoints.length;
-    const targetWp = curPoints[wpIdx] || curPoints[0];
-
+    const target = getSmoothBotTarget(bot);
     const wobbleSeed = (bot.id ? bot.id.charCodeAt(bot.id.length - 1) : 0);
-    const wobbleX = Math.sin(frameCount * 0.05 + wobbleSeed) * 18;
-    const wobbleY = Math.cos(frameCount * 0.05 + wobbleSeed) * 18;
-    const dx = (targetWp.x + wobbleX) - bot.x;
-    const dy = (targetWp.y + wobbleY) - bot.y;
+    const wobble = Math.sin(frameCount * 0.035 + wobbleSeed) * 7;
+    const dx = (target.x + Math.cos(bot.angle + Math.PI / 2) * wobble) - bot.x;
+    const dy = (target.y + Math.sin(bot.angle + Math.PI / 2) * wobble) - bot.y;
     const targetAngle = Math.atan2(dy, dx);
 
     let angleDiff = targetAngle - bot.angle;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
 
-    bot.angle += Math.max(-bot.steerAggro, Math.min(bot.steerAggro, angleDiff));
+    // カーブでは少し強く、直線では穏やかに曲がる。
+    const turnBoost = Math.min(1.35, 1 + Math.abs(angleDiff) * 0.65);
+    const steerLimit = bot.steerAggro * turnBoost;
+    bot.angle += Math.max(-steerLimit, Math.min(steerLimit, angleDiff));
 
     let maxSpd = bot.targetSpeed;
     if (bot.boostTimer > 0) {
@@ -1716,21 +1832,33 @@ function updateBotAI(bot) {
       bot.speed += 0.06;
     }
 
-    // CPUもプレイヤーと同様にコース外では速度を制限する
-    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) {
-      maxSpd *= 0.5;
-    }
+    if (target.edgeDist > ROAD_WIDTH * 0.42) maxSpd *= 0.78;
+    if (target.edgeDist > ROAD_WIDTH * 0.49) maxSpd *= 0.62;
+    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) maxSpd *= 0.72;
 
     if (bot.speed < maxSpd) bot.speed += 0.03;
-    else bot.speed *= 0.92;
+    else bot.speed *= 0.94;
 
-    if (Math.hypot(dx, dy) < 240) {
+    const wpIdx = (bot.nextCheckpoint || 0) % curPoints.length;
+    const wp = curPoints[wpIdx] || curPoints[0];
+    if (Math.hypot(bot.x - wp.x, bot.y - wp.y) < 230) {
       bot.nextCheckpoint = (wpIdx + 1) % curPoints.length;
     }
   }
 
   bot.x += Math.cos(bot.angle) * bot.speed;
   bot.y += Math.sin(bot.angle) * bot.speed;
+
+  // コース外へ飛び出した場合は、次フレームから中心線へ戻る。
+  const proj = getRoadProjection(bot.x, bot.y);
+  if (Math.sqrt(proj.distSq) > ROAD_WIDTH * 0.58) {
+    const returnAngle = Math.atan2(proj.y - bot.y, proj.x - bot.x);
+    let diff = returnAngle - bot.angle;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    bot.angle += Math.max(-bot.steerAggro * 1.8, Math.min(bot.steerAggro * 1.8, diff));
+    bot.speed *= 0.88;
+  }
 
   checkRacerLap(bot, false);
 
@@ -1739,7 +1867,7 @@ function updateBotAI(bot) {
       box.active = false;
       box.respawnTimer = 300;
       if (!bot.heldItem) {
-        const pool = ["🍌", "🍏", "🍄", "🧼"];
+        const pool = ["🍌", "🍏", "🍄", "🧼", "💩"];
         bot.heldItem = pool[Math.floor(Math.random() * pool.length)];
         bot.itemCooldown = 140 + Math.floor(Math.random() * 140);
       }
@@ -1751,8 +1879,8 @@ function updateBotAI(bot) {
     if (bot.itemCooldown <= 0) {
       const itm = bot.heldItem;
       bot.heldItem = null;
-      const id = `CPU_${bot.id}_${Date.now()}`;
-      
+      const id = `CPU_${bot.id}_${Date.now()}_${Math.random()}`;
+
       if (itm === "🍌") {
         worldObjects.push({ id, type: "banana", ownerId: bot.id, immunityTimer: 60, x: bot.x - Math.cos(bot.angle)*40, y: bot.y - Math.sin(bot.angle)*40, radius: 16 });
       } else if (itm === "🧼") {
@@ -1761,15 +1889,26 @@ function updateBotAI(bot) {
         worldObjects.push({ id, type: "apple", ownerId: bot.id, immunityTimer: 20, x: bot.x + Math.cos(bot.angle)*35, y: bot.y + Math.sin(bot.angle)*35, vx: Math.cos(bot.angle)*6.8, vy: Math.sin(bot.angle)*6.8, radius: 16, life: 220 });
       } else if (itm === "🍄") {
         bot.boostTimer = 75;
+      } else if (itm === "💩") {
+        const target = getHomingTarget(bot);
+        if (target) {
+          worldObjects.push({
+            id, type: "poop", ownerId: bot.id, targetId: target.id,
+            immunityTimer: 12,
+            x: bot.x + Math.cos(bot.angle) * 34,
+            y: bot.y + Math.sin(bot.angle) * 34,
+            vx: Math.cos(bot.angle) * 4.8, vy: Math.sin(bot.angle) * 4.8,
+            speed: 4.8, turnRate: 0.13, radius: 18, life: 210
+          });
+        }
       }
     }
   }
 
   for (let i = worldObjects.length - 1; i >= 0; i--) {
     const obj = worldObjects[i];
-    if (obj.type === "apple") continue;
+    if (obj.type === "apple" || obj.type === "poop") continue;
     if (obj.ownerId === bot.id && obj.immunityTimer > 0) continue;
-    
     const d = Math.hypot(bot.x - obj.x, bot.y - obj.y);
     if (d < obj.radius + 16) {
       bot.spinTimer = 52;
@@ -2026,12 +2165,35 @@ function update() {
     if (obj.type === "apple") {
       obj.x += obj.vx; obj.y += obj.vy; obj.life--;
       if (obj.life <= 0) { worldObjects.splice(i, 1); continue; }
+    } else if (obj.type === "poop") {
+      let target = null;
+      if (obj.targetId === player.id) target = player;
+      else if (gameMode === "ONLINE_2P" && remotePlayer.connected && obj.targetId === remotePlayer.id) target = remotePlayer;
+      else target = activeBots.find(b => b.id === obj.targetId) || null;
+
+      if (!target || target.finished) {
+        obj.life = 0;
+      } else {
+        const desired = Math.atan2(target.y - obj.y, target.x - obj.x);
+        let diff = desired - Math.atan2(obj.vy, obj.vx);
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        const turn = Math.max(-obj.turnRate, Math.min(obj.turnRate, diff));
+        const currentAngle = Math.atan2(obj.vy, obj.vx) + turn;
+        obj.vx = Math.cos(currentAngle) * obj.speed;
+        obj.vy = Math.sin(currentAngle) * obj.speed;
+        obj.x += obj.vx;
+        obj.y += obj.vy;
+        obj.life--;
+      }
+      if (obj.life <= 0) { worldObjects.splice(i, 1); continue; }
     }
 
     const isImmune = (obj.ownerId === player.id && obj.immunityTimer > 0);
     const d = Math.hypot(player.x - obj.x, player.y - obj.y);
 
-    if (!isImmune && d < obj.radius + 16) {
+    const isTargetedPoop = obj.type === "poop" && obj.targetId !== player.id;
+    if (!isImmune && !isTargetedPoop && d < obj.radius + 16) {
       if (player.starTimer > 0) {
         safeRun(playCrashSound);
         player.particles.push({ x: obj.x, y: obj.y, char: "✨", size: 30, life: 20 });
@@ -2047,6 +2209,16 @@ function update() {
     }
 
     if (obj.type === "apple" && gameMode === "ONLINE_2P" && remotePlayer.connected) {
+      if (Math.hypot(remotePlayer.x - obj.x, remotePlayer.y - obj.y) < obj.radius + 18) {
+        worldObjects.splice(i, 1);
+        if (conn) {
+          conn.send({ type: "removeObj", id: obj.id });
+          conn.send({ type: "hit" });
+        }
+      }
+    }
+
+    if (obj.type === "poop" && gameMode === "ONLINE_2P" && remotePlayer.connected && obj.targetId === remotePlayer.id) {
       if (Math.hypot(remotePlayer.x - obj.x, remotePlayer.y - obj.y) < obj.radius + 18) {
         worldObjects.splice(i, 1);
         if (conn) {
@@ -2321,12 +2493,14 @@ function render() {
   worldObjects.forEach(obj => {
     ctx.save();
     ctx.translate(obj.x, obj.y);
+    if (obj.type === "poop") ctx.rotate(Math.atan2(obj.vy, obj.vx));
     ctx.font = "26px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     if (obj.type === "apple") ctx.fillText("🍏", 0, 0);
     else if (obj.type === "banana") ctx.fillText("🍌", 0, 0);
     else if (obj.type === "soap") ctx.fillText("🧼", 0, 0);
+    else if (obj.type === "poop") ctx.fillText("💩", 0, 0);
     ctx.restore();
   });
 
