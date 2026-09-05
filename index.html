@@ -1734,7 +1734,7 @@ function getSmoothBotTarget(bot) {
   const segmentDx = b.x - a.x;
   const segmentDy = b.y - a.y;
   const segmentLen = Math.hypot(segmentDx, segmentDy) || 1;
-  const lookAhead = Math.min(190, Math.max(80, bot.speed * 48 + 70));
+  const lookAhead = Math.min(150, Math.max(55, bot.speed * 34 + 45));
   let remaining = (1 - proj.t) * segmentLen + lookAhead;
   let idx = (baseIdx + 1) % n;
   let tx = proj.x;
@@ -1762,7 +1762,7 @@ function getSmoothBotTarget(bot) {
   const wpIdx = (bot.nextCheckpoint || 0) % n;
   const wp = points[wpIdx] || points[0];
   const wpDist = Math.hypot(bot.x - wp.x, bot.y - wp.y);
-  const wpWeight = wpDist < 260 ? 0.18 : 0.08;
+  const wpWeight = wpDist < 180 ? 0.10 : 0.035;
   tx = tx * (1 - wpWeight) + wp.x * wpWeight;
   ty = ty * (1 - wpWeight) + wp.y * wpWeight;
 
@@ -1846,10 +1846,21 @@ function updateBotAI(bot) {
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
 
-    // カーブでは少し強く、直線では穏やかに曲がる。
-    const turnBoost = Math.min(1.35, 1 + Math.abs(angleDiff) * 0.65);
+    // 急カーブで目標点が一瞬後ろに回っても、左右へ振り続けない。
+    // まず道路の進行方向へ姿勢を戻し、通常の追従に復帰する。
+    const projNow = getRoadProjection(bot.x, bot.y);
+    const segA = curPoints[projNow.segIdx];
+    const segB = curPoints[(projNow.segIdx + 1) % curPoints.length];
+    const roadAngle = Math.atan2(segB.y - segA.y, segB.x - segA.x);
+    let roadDiff = roadAngle - bot.angle;
+    while (roadDiff < -Math.PI) roadDiff += Math.PI * 2;
+    while (roadDiff > Math.PI) roadDiff -= Math.PI * 2;
+
+    // 120度を超える「後ろ向き目標」は採用せず、道路方向を優先。
+    const steeringDiff = Math.abs(angleDiff) > Math.PI * 0.67 ? roadDiff : angleDiff;
+    const turnBoost = Math.min(1.22, 1 + Math.abs(steeringDiff) * 0.48);
     const steerLimit = bot.steerAggro * turnBoost;
-    bot.angle += Math.max(-steerLimit, Math.min(steerLimit, angleDiff));
+    bot.angle += Math.max(-steerLimit, Math.min(steerLimit, steeringDiff));
 
     let maxSpd = bot.targetSpeed;
     // 大きく遅れたCPUだけ少し追い上げる。勝ちやすさを保ちつつ団子を維持。
@@ -1875,6 +1886,19 @@ function updateBotAI(bot) {
     if (Math.hypot(bot.x - wp.x, bot.y - wp.y) < 230) {
       bot.nextCheckpoint = (wpIdx + 1) % curPoints.length;
     }
+  }
+
+  // 急カーブで進行方向と車体が大きくズレたときのクルクル防止。
+  const headingProj = getRoadProjection(bot.x, bot.y);
+  const hA = curPoints[headingProj.segIdx];
+  const hB = curPoints[(headingProj.segIdx + 1) % curPoints.length];
+  const pathAngle = Math.atan2(hB.y - hA.y, hB.x - hA.x);
+  let headingDiff = pathAngle - bot.angle;
+  while (headingDiff < -Math.PI) headingDiff += Math.PI * 2;
+  while (headingDiff > Math.PI) headingDiff -= Math.PI * 2;
+  if (Math.abs(headingDiff) > Math.PI * 0.72) {
+    bot.angle += Math.max(-bot.steerAggro * 1.35, Math.min(bot.steerAggro * 1.35, headingDiff));
+    bot.speed *= 0.985;
   }
 
   bot.x += Math.cos(bot.angle) * bot.speed;
