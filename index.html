@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
   <title>NAKATAKART ナカタカート</title>
+  <!-- PeerJS -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Firebase App & Database (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
 
@@ -121,25 +125,25 @@
     @keyframes titleBounce { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
     @keyframes blink { 0% { opacity: 0.35; } 100% { opacity: 1; } }
 
-    /* メニュー */
+    /* メニュー & リザルト */
     #mode-select-view, #online-lobby-view, #result-view {
       background: rgba(15, 23, 42, 0.92);
       backdrop-filter: blur(8px);
     }
     .card {
       background: #1e293b;
-      padding: 18px 20px;
+      padding: 16px 18px;
       border-radius: 24px;
       width: 100%;
       max-width: 420px;
       text-align: center;
       box-shadow: 0 12px 35px rgba(0,0,0,0.6);
       border: 1px solid rgba(255,255,255,0.12);
-      max-height: 92vh;
+      max-height: 94vh;
       overflow-y: auto;
     }
     h2 { font-size: 1.25rem; color: #38bdf8; margin-bottom: 4px; }
-    p { font-size: 0.75rem; color: #94a3b8; margin-bottom: 10px; }
+    p { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; }
 
     .section-label {
       font-size: 0.72rem;
@@ -154,7 +158,7 @@
     .pick-btn { background: #334155; border: 2px solid transparent; border-radius: 12px; padding: 6px 0; font-size: 1.35rem; cursor: pointer; color: #fff; }
     .pick-btn.active { border-color: #38bdf8; background: #0284c7; }
 
-    .course-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 14px; }
+    .course-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px; }
     .course-btn {
       background: #334155;
       border: 2px solid transparent;
@@ -177,7 +181,7 @@
       padding: 10px;
       border-radius: 14px;
       border: none;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: bold;
       cursor: pointer;
       margin-bottom: 8px;
@@ -191,7 +195,7 @@
     .btn-online { background: #f59e0b; color: #fff; }
     .btn-back { background: #475569; color: #fff; padding: 8px; font-size: 0.8rem; }
 
-    input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #475569; background: #0b1120; color: #fff; margin-bottom: 10px; text-align: center; font-size: 0.9rem; }
+    input { width: 100%; padding: 8px 12px; border-radius: 10px; border: 1px solid #475569; background: #0b1120; color: #fff; text-align: center; font-size: 0.85rem; }
 
     /* HUD */
     .hud {
@@ -239,9 +243,7 @@
       backdrop-filter: blur(8px);
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
       pointer-events: auto;
-      transition: background 0.1s;
     }
-    #btn-race-exit:active { background: rgba(239, 68, 68, 0.85); }
 
     /* アイテムスロット */
     #item-slot {
@@ -359,47 +361,89 @@
       align-items: flex-end;
       justify-content: center;
       gap: 12px;
-      margin: 10px 0 14px 0;
-      height: 120px;
+      margin: 8px 0 10px 0;
+      height: 105px;
     }
     .podium-step {
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 76px;
+      width: 72px;
       border-radius: 10px 10px 0 0;
       position: relative;
     }
-    .podium-avatar { font-size: 1.8rem; margin-bottom: 2px; }
-    .podium-driver { font-size: 1.4rem; position: absolute; top: -24px; }
-    .step-1 { height: 75px; background: linear-gradient(180deg, #facc15, #ca8a04); }
-    .step-2 { height: 55px; background: linear-gradient(180deg, #94a3b8, #64748b); }
-    .step-3 { height: 40px; background: linear-gradient(180deg, #f97316, #c2410c); }
-    .step-label { font-size: 0.9rem; font-weight: 900; color: #0f172a; margin-top: 4px; }
+    .podium-avatar { font-size: 1.6rem; margin-bottom: 2px; }
+    .podium-driver { font-size: 1.3rem; position: absolute; top: -22px; }
+    .step-1 { height: 68px; background: linear-gradient(180deg, #facc15, #ca8a04); }
+    .step-2 { height: 50px; background: linear-gradient(180deg, #94a3b8, #64748b); }
+    .step-3 { height: 36px; background: linear-gradient(180deg, #f97316, #c2410c); }
+    .step-label { font-size: 0.85rem; font-weight: 900; color: #0f172a; margin-top: 4px; }
 
     .lap-table {
       width: 100%;
       background: #0f172a;
       border-radius: 10px;
       padding: 6px 12px;
-      margin-bottom: 10px;
-      font-size: 0.75rem;
+      margin-bottom: 8px;
+      font-size: 0.72rem;
       border: 1px solid rgba(255,255,255,0.08);
     }
     .lap-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .lap-row:last-child { border-bottom: none; font-weight: bold; color: #38bdf8; }
     .fastest-tag { background: #facc15; color: #0f172a; padding: 1px 4px; border-radius: 4px; font-weight: 900; font-size: 0.65rem; margin-left: 4px; }
 
+    /* オンラインランキング表示エリア */
+    .ranking-box {
+      width: 100%;
+      background: #0b1120;
+      border-radius: 12px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      text-align: left;
+    }
+    .ranking-header {
+      font-size: 0.75rem;
+      font-weight: 900;
+      color: #38bdf8;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 4px;
+    }
+    .ranking-list { list-style: none; font-size: 0.72rem; max-height: 95px; overflow-y: auto; }
+    .ranking-item { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+    .ranking-item:last-child { border-bottom: none; }
+    .rank-num { font-weight: 900; color: #facc15; width: 22px; }
+
+    .submit-wrap {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .btn-submit-score {
+      background: #f59e0b;
+      color: #fff;
+      border: none;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-weight: 900;
+      font-size: 0.75rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
     .stamp-tray {
       display: flex;
       justify-content: center;
       gap: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       background: rgba(15, 23, 42, 0.6);
       padding: 6px;
       border-radius: 12px;
     }
-    .stamp-btn { background: none; border: none; font-size: 1.4rem; cursor: pointer; }
+    .stamp-btn { background: none; border: none; font-size: 1.35rem; cursor: pointer; }
     .flying-stamp {
       position: absolute;
       font-size: 3.5rem;
@@ -509,7 +553,7 @@
     </div>
   </div>
 
-  <!-- レースリザルト -->
+  <!-- レースリザルト & オンラインランキング -->
   <div id="result-view" class="overlay-view hidden">
     <div class="card">
       <h2 id="result-title" style="color:#facc15; font-size:1.3rem;">GRAND PRIX RESULT</h2>
@@ -539,6 +583,24 @@
         <div class="lap-row"><span>TOTAL TIME:</span><span id="total-time">--'--"--</span></div>
       </div>
 
+      <!-- ランキング送信フォーム -->
+      <div class="submit-wrap" id="submit-score-section">
+        <input type="text" id="player-name-input" maxlength="8" placeholder="プレイヤー名（8文字）">
+        <button class="btn-submit-score" id="btn-submit-score">🏆 登録</button>
+      </div>
+      <p id="ranking-msg" style="color:#4ade80; font-size:0.72rem; min-height:1.2em;"></p>
+
+      <!-- 全国ランキングTOP5 -->
+      <div class="ranking-box">
+        <div class="ranking-header">
+          <span>🏆 全国TOP 5 RANKING</span>
+          <span id="ranking-course-label">🏁 クラシック</span>
+        </div>
+        <ul class="ranking-list" id="ranking-list-body">
+          <li style="color:#94a3b8; text-align:center; padding:4px 0;">ランキング読み込み中...</li>
+        </ul>
+      </div>
+
       <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:4px;">相手にスタンプを送る！👇</div>
       <div class="stamp-tray">
         <button class="stamp-btn" data-stamp="👏">👏</button>
@@ -559,7 +621,85 @@
 
 <script>
 // ==========================================
-// 0. サウンドエンジン
+// 0. Firebase オンラインランキング初期化
+// ==========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDrDq3mHKVJQSSU18d7C26xdBfCkqaa-P8",
+  authDomain: "nakatakart.firebaseapp.com",
+  databaseURL: "https://nakatakart-default-rtdb.firebaseio.com",
+  projectId: "nakatakart",
+  storageBucket: "nakatakart.firebasestorage.app",
+  messagingSenderId: "957976112054",
+  appId: "1:957976112054:web:330b942ba24b63e21b6f17",
+  measurementId: "G-DF7P59BG49"
+};
+
+let db = null;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+} catch (e) {
+  console.warn("Firebase init error:", e);
+}
+
+// ランキング登録
+function submitOnlineScore(courseKey, playerName, totalMs) {
+  if (!db) return Promise.reject(new Error("Database not ready"));
+  const cleanName = (playerName || "名無し").trim().slice(0, 8);
+  const recordRef = db.ref(`rankings/${courseKey}`).push();
+  return recordRef.set({
+    name: cleanName,
+    time: totalMs,
+    timestamp: Date.now()
+  });
+}
+
+// ランキングTOP 5取得
+function loadOnlineRanking(courseKey) {
+  const listEl = document.getElementById("ranking-list-body");
+  const labelEl = document.getElementById("ranking-course-label");
+  const curCourse = COURSES[courseKey] || COURSES.classic;
+  if (labelEl) labelEl.textContent = curCourse.name;
+  if (!listEl) return;
+
+  if (!db) {
+    listEl.innerHTML = '<li style="color:#ef4444; text-align:center;">オフライン中</li>';
+    return;
+  }
+
+  listEl.innerHTML = '<li style="color:#94a3b8; text-align:center; padding:4px 0;">読み込み中...</li>';
+
+  db.ref(`rankings/${courseKey}`)
+    .orderByChild("time")
+    .limitToFirst(5)
+    .once("value")
+    .then(snap => {
+      listEl.innerHTML = "";
+      if (!snap.exists()) {
+        listEl.innerHTML = '<li style="color:#94a3b8; text-align:center; padding:4px 0;">まだ記録がありません！</li>';
+        return;
+      }
+      let rank = 1;
+      snap.forEach(child => {
+        const data = child.val();
+        const li = document.createElement("li");
+        li.className = "ranking-item";
+        li.innerHTML = `<span><span class="rank-num">${rank}.</span>${escapeHtml(data.name)}</span><span>${formatTime(data.time)}</span>`;
+        listEl.appendChild(li);
+        rank++;
+      });
+    })
+    .catch(() => {
+      listEl.innerHTML = '<li style="color:#ef4444; text-align:center;">取得エラー</li>';
+    });
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+}
+
+// ==========================================
+// 1. サウンドエンジン
 // ==========================================
 let audioCtx = null;
 let engineOsc = null;
@@ -681,7 +821,7 @@ function playCountdownGo() { playTone(880, "triangle", 0.45, 0.35); }
 function playStampPop() { playTone(880, "sine", 0.15, 0.2); }
 
 // ==========================================
-// 1. カート＆4コース構成（カーブ増量・完全無交差・道路上固定アイテム）
+// 2. カート＆4コース構成（カーブ増量・完全無交差・道路上固定アイテム）
 // ==========================================
 const KARTS = {
   standard:  { name: "クラシック", icon: "🏎️", maxSpeed: 2.3, accelRate: 0.035, turnSpeed: 0.024, friction: 0.985 },
@@ -722,7 +862,6 @@ const COURSES = {
       { x: 1000, y: 1650, r: 500, id: 3 },
       { x: 500,  y: 2000, r: 100, id: 0 }
     ],
-    // 道路線分インデックス（このセグメントの道路真上にアイテムを生成）
     itemSegments: [1, 5, 8, 11],
     decorations: [
       { char: "🌳", x: 600, y: 1800 }, { char: "🌲", x: 1600, y: 1850 },
@@ -737,7 +876,6 @@ const COURSES = {
     road: "#78350f",
     curb: "#f59e0b",
     particleChar: "✨",
-    // 砂丘S字やワインディングを増やしたリニューアルカーブ
     points: [
       { x: 500,  y: 2050 }, // 0: スタート
       { x: 1100, y: 2050 }, // 1
@@ -824,7 +962,6 @@ const COURSES = {
     road: "#312e81",
     curb: "#a855f7",
     particleChar: "🟣",
-    // 完全無交差 ＋ 連続ヘアピン・直角クランク・S字迷路の超テクニカル構成（全24頂点）
     points: [
       { x: 500,  y: 2100 }, // 0: スタート
       { x: 1200, y: 2100 }, // 1
@@ -849,7 +986,7 @@ const COURSES = {
       { x: 850,  y: 1300 }, // 20: 西S字スネーク
       { x: 450,  y: 1550 }, // 21
       { x: 800,  y: 1800 }, // 22: 最終シケイン
-      { x: 400,  y: 1850 }  // 23: 最終コーナー（ゴールへ真っ直ぐアプローチ）
+      { x: 400,  y: 1850 }  // 23: 最終コーナー（ゴールへ直結）
     ],
     sectors: [
       { x: 3300, y: 1600, r: 500, id: 1 },
@@ -885,7 +1022,6 @@ let raceSessionId = 0;
 const ambientParticles = [];
 let currentObstacles = [];
 
-// 道路上にアイテムボックスを100%確実に整列配置するビルダー
 function buildStageData(courseKey) {
   raceSessionId++;
   if (itemRouletteTimer) { clearInterval(itemRouletteTimer); itemRouletteTimer = null; }
@@ -903,13 +1039,11 @@ function buildStageData(courseKey) {
   segs.forEach((segIdx, groupIdx) => {
     const p1 = points[segIdx % points.length];
     const p2 = points[(segIdx + 1) % points.length];
-    // 道路セグメントの中央点（道路の真上）
     const mx = (p1.x + p2.x) * 0.5;
     const my = (p1.y + p2.y) * 0.5;
     const roadAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
     const perpAngle = roadAngle + Math.PI / 2;
 
-    // 道路幅160pxの内側（中央・左右35px）に整然と3個配置
     [-35, 0, 35].forEach((offset, subIdx) => {
       itemBoxes.push({
         id: `${groupIdx}-${subIdx}`,
@@ -930,7 +1064,7 @@ function buildStageData(courseKey) {
 }
 
 // ==========================================
-// 2. レーサー状態管理
+// 3. レーサー状態管理
 // ==========================================
 let currentScene = "TITLE";
 let gameMode = "DEMO";
@@ -1123,7 +1257,7 @@ function setupRacersForMode(mode) {
 let smokeIntensity = 0;
 
 // ==========================================
-// 3. 画面遷移＆セレクトUI
+// 4. 画面遷移＆セレクトUI
 // ==========================================
 let peer = null;
 let conn = null;
@@ -1235,6 +1369,30 @@ bindButtonAction(document.getElementById("btn-result-menu"), () => {
   currentScene = "MENU";
   stopEngineSoundImmediately();
   setupAttractDemo();
+});
+
+// オンラインランキング登録ボタン
+bindButtonAction(document.getElementById("btn-submit-score"), () => {
+  const nameInput = document.getElementById("player-name-input");
+  const msgEl = document.getElementById("ranking-msg");
+  const totalMs = lapDurations.reduce((a, b) => a + b, 0);
+  const name = (nameInput.value || "").trim();
+
+  if (!name) {
+    if (msgEl) { msgEl.style.color = "#f59e0b"; msgEl.textContent = "名前を入力してください！"; }
+    return;
+  }
+
+  if (msgEl) { msgEl.style.color = "#38bdf8"; msgEl.textContent = "タイムを送信中..."; }
+  submitOnlineScore(currentCourseKey, name, totalMs)
+    .then(() => {
+      if (msgEl) { msgEl.style.color = "#4ade80"; msgEl.textContent = "ランキングに登録されました！🎉"; }
+      document.getElementById("submit-score-section").style.display = "none";
+      loadOnlineRanking(currentCourseKey);
+    })
+    .catch(() => {
+      if (msgEl) { msgEl.style.color = "#ef4444"; msgEl.textContent = "送信に失敗しました。"; }
+    });
 });
 
 document.querySelectorAll(".stamp-btn").forEach(btn => {
@@ -1416,7 +1574,7 @@ function handleNetworkData(data) {
 }
 
 // ==========================================
-// 4. 改良版タッチ操作
+// 5. 改良版タッチ操作
 // ==========================================
 const canvas = document.getElementById("race-canvas");
 const ctx = canvas.getContext("2d");
@@ -1653,7 +1811,7 @@ window.addEventListener("keyup", (e) => {
 });
 
 // ==========================================
-// 5. 判定・周回＆タイム計測
+// 6. 判定・周回＆タイム計測
 // ==========================================
 function distSq(p, v, w) {
   const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
@@ -1726,7 +1884,6 @@ function updateItemSlotUI() {
   }
 }
 
-// ラップ進行時のアイテム位置微調整（道路中心線の垂直方向にシフト）
 function shiftItemBoxesForLap(lap) {
   if (lap <= 1 || itemLayoutLap >= lap) return;
   itemLayoutLap = lap;
@@ -1819,10 +1976,17 @@ function triggerPlayerGoal() {
     const totalMs = lapDurations.reduce((a, b) => a + b, 0);
     if (tt) tt.textContent = formatTime(totalMs);
 
+    // オンラインランキング入力欄と一覧の更新
+    document.getElementById("submit-score-section").style.display = "flex";
+    const msgEl = document.getElementById("ranking-msg");
+    if (msgEl) msgEl.textContent = "";
+    loadOnlineRanking(currentCourseKey);
+
     resultView.classList.remove("hidden");
   }, 1400);
 }
 
+// ボット進行用：現在のWPへ向かうセグメント限定の厳格な追従探索
 function getRoadProjectionLocal(px, py, hintWpIdx) {
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const points = curCourse.points;
@@ -1947,6 +2111,7 @@ function getHomingTarget(owner) {
   return aheadTarget || nearestTarget;
 }
 
+// CPUのAI制御（大幅遅れ時のラバーバンド・猛追ブースト搭載）
 function updateBotAI(bot) {
   if (isCountingDown) return;
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
@@ -2000,8 +2165,17 @@ function updateBotAI(bot) {
     let maxSpd = bot.targetSpeed;
     const playerProgress = getRaceProgress(player);
     const botProgress = getRaceProgress(bot);
-    if (playerProgress - botProgress > 120) maxSpd *= 1.05;
-    if (playerProgress - botProgress > 260) maxSpd *= 1.09;
+    const lagDist = playerProgress - botProgress;
+
+    // ラバーバンド：大きく遅れたCPUを猛追速化！
+    if (lagDist > 150) maxSpd *= 1.15;
+    if (lagDist > 300) {
+      maxSpd *= 1.35; // 猛追モード
+      if (frameCount % 120 === 0 && bot.boostTimer <= 0) {
+        bot.boostTimer = 40; // 自動ロケットダッシュ
+      }
+    }
+
     if (bot.boostTimer > 0) {
       bot.boostTimer--;
       maxSpd *= 1.35;
@@ -2172,7 +2346,7 @@ function calculateRankings() {
 }
 
 // ==========================================
-// 6. メインループ
+// 7. メインループ
 // ==========================================
 let frameCount = 0;
 let finalLapNoticeTimer = 0;
@@ -2647,7 +2821,7 @@ function update() {
 }
 
 // ==========================================
-// 7. レンダリング
+// 8. レンダリング
 // ==========================================
 function drawCircuit(c) {
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
