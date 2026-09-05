@@ -1962,7 +1962,34 @@ function updateBotAI(bot) {
 
   for (let i = worldObjects.length - 1; i >= 0; i--) {
     const obj = worldObjects[i];
-    if (obj.type === "apple" || obj.type === "poop") continue;
+
+    // 💩はtargetIdで狙ったCPUに直接ヒットさせる。
+    // これまでCPU側の衝突判定から💩を除外していたため、
+    // ホーミングしてもCPUをすり抜けることがあった。
+    if (obj.type === "poop") {
+      if (obj.targetId === bot.id && obj.ownerId !== bot.id && obj.immunityTimer <= 0) {
+        const dPoop = Math.hypot(bot.x - obj.x, bot.y - obj.y);
+        if (dPoop < obj.radius + 20) {
+          bot.spinTimer = 60;
+          bot.speed *= 0.35;
+          for (let k = 0; k < 5; k++) {
+            bot.particles.push({
+              x: bot.x + (Math.random() - 0.5) * 20,
+              y: bot.y + (Math.random() - 0.5) * 20,
+              char: k < 3 ? "💩" : "💥",
+              size: k < 3 ? 22 : 28,
+              life: 22 + Math.floor(Math.random() * 10)
+            });
+          }
+          safeRun(playCrashSound);
+          worldObjects.splice(i, 1);
+          if (conn) conn.send({ type: "removeObj", id: obj.id });
+          continue;
+        }
+      }
+      continue;
+    }
+
     if (obj.ownerId === bot.id && obj.immunityTimer > 0) continue;
     const d = Math.hypot(bot.x - obj.x, bot.y - obj.y);
     if (d < obj.radius + 16) {
