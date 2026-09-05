@@ -957,10 +957,10 @@ const remotePlayer = {
 };
 
 const CPU_PRESETS = [
-  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.01, steerAggro: 0.028 },
-  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.17, steerAggro: 0.025 },
-  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 1.86, steerAggro: 0.032 },
-  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 1.96, steerAggro: 0.026 }
+  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 1.94, steerAggro: 0.028 },
+  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.09, steerAggro: 0.025 },
+  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 1.79, steerAggro: 0.032 },
+  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 1.89, steerAggro: 0.026 }
 ];
 
 let activeBots = [];
@@ -1716,8 +1716,13 @@ function updateBotAI(bot) {
       bot.speed += 0.06;
     }
 
+    // CPUもプレイヤーと同様にコース外では速度を制限する
+    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) {
+      maxSpd *= 0.5;
+    }
+
     if (bot.speed < maxSpd) bot.speed += 0.03;
-    else bot.speed *= 0.99;
+    else bot.speed *= 0.92;
 
     if (Math.hypot(dx, dy) < 240) {
       bot.nextCheckpoint = (wpIdx + 1) % curPoints.length;
@@ -1901,7 +1906,7 @@ function update() {
 
       if (player.webTimer > 0 && player.starTimer <= 0) {
         player.webTimer--;
-        topSpeed *= 0.78;
+        topSpeed *= 0.55;
       }
 
       if (player.speed > topSpeed) player.speed *= cfg.friction;
@@ -1970,10 +1975,14 @@ function update() {
           safeRun(playCrashSound);
           player.particles.push({ x: obs.x, y: obs.y, char: "💢", size: 28, life: 20 });
         } else if (obs.slow) {
-          // 蜘蛛の巣: 連続で速度を掛け続けず、巣の中にいる間だけ最高速度を制限する方式に変更
-          player.webTimer = 30;
-          if (frameCount % 6 === 0) {
-            player.particles.push({ x: player.x, y: player.y, char: "🕸️", size: 22, life: 16 });
+          // 蜘蛛の巣: 突入時に一度だけしっかり速度を落とし、巣の中にいる間は最高速度も制限する
+          if (player.webTimer <= 0) {
+            player.speed *= 0.6;
+            safeRun(playCrashSound);
+          }
+          player.webTimer = 45;
+          if (frameCount % 5 === 0) {
+            player.particles.push({ x: player.x, y: player.y, char: "🕸️", size: 24, life: 16 });
           }
         } else {
           safeRun(playCrashSound);
@@ -2090,16 +2099,16 @@ function update() {
         char: "✨", size: 14 + Math.random() * 6, life: 16
       });
     } else if (isDesertCourse) {
-      // 砂漠コース: ドリフト時に通常より大きく黄色い砂埃が舞う
+      // 砂漠コース: ドリフト時に通常よりやや大きめの黄色い砂埃が舞う（控えめサイズ）
       player.particles.push({
-        x: player.x - Math.cos(player.angle) * 18 + (Math.random() - 0.5) * 16,
-        y: player.y - Math.sin(player.angle) * 18 + (Math.random() - 0.5) * 16,
-        char: "🟡", size: 22 + Math.random() * 12, life: 24
+        x: player.x - Math.cos(player.angle) * 16 + (Math.random() - 0.5) * 12,
+        y: player.y - Math.sin(player.angle) * 16 + (Math.random() - 0.5) * 12,
+        char: "🟡", size: 14 + Math.random() * 5, life: 18
       });
       player.particles.push({
-        x: player.x - Math.cos(player.angle) * 22 + (Math.random() - 0.5) * 20,
-        y: player.y - Math.sin(player.angle) * 22 + (Math.random() - 0.5) * 20,
-        char: "💨", size: 16 + Math.random() * 8, life: 20
+        x: player.x - Math.cos(player.angle) * 18 + (Math.random() - 0.5) * 14,
+        y: player.y - Math.sin(player.angle) * 18 + (Math.random() - 0.5) * 14,
+        char: "💨", size: 12 + Math.random() * 5, life: 16
       });
     } else {
       player.particles.push({
@@ -2123,12 +2132,12 @@ function update() {
     });
   }
 
-  // お化け屋敷コース: カート後方にうっすらとしたテールランプの残光（紫の軌跡）
-  if (currentCourseKey === "mansion" && player.speed > 0.3 && frameCount % 2 === 0) {
+  // お化け屋敷コース: カート後方にたまーに浮かぶテールランプの残光（紫の軌跡）。常時ではなく間欠的に。
+  if (currentCourseKey === "mansion" && player.speed > 0.5 && frameCount % 22 === 0 && Math.random() < 0.6) {
     player.particles.push({
       x: player.x - Math.cos(player.angle) * 20 + (Math.random() - 0.5) * 6,
       y: player.y - Math.sin(player.angle) * 20 + (Math.random() - 0.5) * 6,
-      char: "🟣", size: 9 + Math.random() * 4, life: 24
+      char: "🟣", size: 6 + Math.random() * 3, life: 14
     });
   }
 
