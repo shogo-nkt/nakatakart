@@ -681,7 +681,7 @@ function playCountdownGo() { playTone(880, "triangle", 0.45, 0.35); }
 function playStampPop() { playTone(880, "sine", 0.15, 0.2); }
 
 // ==========================================
-// 1. カート＆4コース構成（お化け屋敷を完全無交差化！）
+// 1. カート＆4コース構成（お化け屋敷：無交差＆超テクニカル設計）
 // ==========================================
 const KARTS = {
   standard:  { name: "クラシック", icon: "🏎️", maxSpeed: 2.3, accelRate: 0.035, turnSpeed: 0.024, friction: 0.985 },
@@ -836,47 +836,55 @@ const COURSES = {
     road: "#312e81",
     curb: "#a855f7",
     particleChar: "🟣",
-    // 交差・近接を完全に排除したクリーンな時計回りサーキット
+    // 完全無交差 ＋ 連続ヘアピン・直角クランク・S字迷路の超テクニカル構成（全24頂点）
     points: [
-      { x: 600,  y: 2100 }, // 0: スタート
-      { x: 1500, y: 2100 }, // 1: 南ストレート
-      { x: 2200, y: 2100 }, // 2
-      { x: 2900, y: 1900 }, // 3: 南東コーナー
-      { x: 3200, y: 1400 }, // 4: 東ヘアピン1
-      { x: 2600, y: 1300 }, // 5: 切り返し
-      { x: 3100, y: 900 },  // 6: 東ヘアピン2
-      { x: 2900, y: 450 },  // 7: 北東コーナー
-      { x: 2100, y: 450 },  // 8: 北クランク1
-      { x: 1900, y: 750 },  // 9: クランク落とし
-      { x: 1400, y: 750 },  // 10: クランク底
-      { x: 1200, y: 450 },  // 11: 北クランク2
-      { x: 500,  y: 450 },  // 12: 北西コーナー
-      { x: 350,  y: 950 },  // 13: 西ヘアピン
-      { x: 800,  y: 1200 }, // 14: 中道
-      { x: 450,  y: 1550 }  // 15: 最終コーナー（ゴールへ真っ直ぐアプローチ）
+      { x: 500,  y: 2100 }, // 0: スタート
+      { x: 1200, y: 2100 }, // 1
+      { x: 1800, y: 2100 }, // 2: 南ストレート
+      { x: 2400, y: 2200 }, // 3: 南東アプローチ
+      { x: 3000, y: 2000 }, // 4: コーナー1
+      { x: 3300, y: 1600 }, // 5: 東ヘアピン1
+      { x: 2700, y: 1600 }, // 6: ヘアピン折り返し
+      { x: 2600, y: 1250 }, // 7: 東ヘアピン2
+      { x: 3200, y: 1200 }, // 8: ヘアピン折り返し
+      { x: 3200, y: 800 },  // 9: 東ヘアピン3
+      { x: 2700, y: 700 },  // 10
+      { x: 2900, y: 400 },  // 11: 北東コーナー
+      { x: 2200, y: 400 },  // 12: 北クランク1
+      { x: 2200, y: 750 },  // 13: クランク落とし
+      { x: 1700, y: 750 },  // 14: クランク横
+      { x: 1700, y: 400 },  // 15: クランク上げ
+      { x: 1100, y: 400 },  // 16: クランク2
+      { x: 1100, y: 750 },  // 17
+      { x: 600,  y: 750 },  // 18: 北西コーナー
+      { x: 400,  y: 1100 }, // 19: 西ヘアピン
+      { x: 850,  y: 1300 }, // 20: 西S字スネーク
+      { x: 450,  y: 1550 }, // 21
+      { x: 800,  y: 1800 }, // 22: 最終シケイン
+      { x: 400,  y: 1850 }  // 23: 最終コーナー（ゴールへ真っ直ぐアプローチ）
     ],
     sectors: [
-      { x: 3200, y: 1400, r: 500, id: 1 },
-      { x: 1900, y: 750,  r: 500, id: 2 },
-      { x: 350,  y: 950,  r: 500, id: 3 },
-      { x: 600,  y: 2100, r: 100, id: 0 }
+      { x: 3300, y: 1600, r: 500, id: 1 },
+      { x: 1700, y: 400,  r: 500, id: 2 },
+      { x: 400,  y: 1100, r: 500, id: 3 },
+      { x: 500,  y: 2100, r: 100, id: 0 }
     ],
     itemLocations: [
-      { x: 1600, y: 2100, angle: 0 },
-      { x: 2850, y: 1100, angle: -Math.PI / 2 },
-      { x: 1650, y: 750,  angle: Math.PI },
-      { x: 600,  y: 1350, angle: Math.PI / 3 }
+      { x: 1500, y: 2100, angle: 0 },
+      { x: 2900, y: 1400, angle: -Math.PI / 2 },
+      { x: 1400, y: 750,  angle: Math.PI },
+      { x: 650,  y: 1450, angle: Math.PI / 3 }
     ],
     decorations: [
-      { char: "🪦", x: 1000, y: 1900 }, { char: "⚰️", x: 2400, y: 1850 },
-      { char: "🏰", x: 2000, y: 1200 }, { char: "🕯️", x: 2850, y: 750 },
-      { char: "🦇", x: 1550, y: 350 },  { char: "🪦", x: 600, y: 750 }
+      { char: "🪦", x: 900,  y: 1950 }, { char: "⚰️", x: 2100, y: 1950 },
+      { char: "🏰", x: 2200, y: 1200 }, { char: "🕯️", x: 2900, y: 950 },
+      { char: "🦇", x: 1400, y: 550 },  { char: "🪦", x: 650,  y: 950 }
     ],
     obstacles: [
-      { type: "ghost", char: "👻", x: 2750, y: 1600, radius: 24, moveType: "circle", cx: 2750, cy: 1600, cr: 50, speed: 0.03 },
-      { type: "web", char: "🕸️", x: 1700, y: 750, radius: 26, slow: true },
+      { type: "ghost", char: "👻", x: 2950, y: 1400, radius: 24, moveType: "circle", cx: 2950, cy: 1400, cr: 50, speed: 0.035 },
+      { type: "web", char: "🕸️", x: 1950, y: 750,  radius: 26, slow: true },
       { type: "pumpkin", char: "🎃", x: 1200, y: 2100, radius: 20, explode: true },
-      { type: "ghost", char: "👻", x: 600, y: 1350, radius: 24, moveType: "circle", cx: 600, cy: 1350, cr: 50, speed: 0.04 }
+      { type: "ghost", char: "👻", x: 650,  y: 1450, radius: 24, moveType: "circle", cx: 650,  y: 1450, cr: 50, speed: 0.04 }
     ]
   }
 };
@@ -965,10 +973,10 @@ const remotePlayer = {
 };
 
 const CPU_PRESETS = [
-  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.38, steerAggro: 0.038 },
-  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.58, steerAggro: 0.035 },
-  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 2.28, steerAggro: 0.042 },
-  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 2.34, steerAggro: 0.036 }
+  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.38, steerAggro: 0.040 },
+  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.58, steerAggro: 0.038 },
+  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 2.28, steerAggro: 0.044 },
+  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 2.34, steerAggro: 0.038 }
 ];
 
 let activeBots = [];
@@ -1819,12 +1827,11 @@ function triggerPlayerGoal() {
   }, 1400);
 }
 
-// ボット進行用：現在目指すセグメント（WP）を基準とした厳格なローカル追従
+// ボット進行用：現在のWPへ向かうセグメント限定の厳格な追従探索
 function getRoadProjectionLocal(px, py, hintWpIdx) {
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const points = curCourse.points;
   const n = points.length;
-  // 現在のWPへ至るセグメントを探索基点に
   const baseSeg = (hintWpIdx - 1 + n) % n;
   let best = { distSq: Infinity, x: px, y: py, segIdx: baseSeg, t: 0 };
   
@@ -1979,7 +1986,7 @@ function updateBotAI(bot) {
     while (roadDiff < -Math.PI) roadDiff += Math.PI * 2;
     while (roadDiff > Math.PI) roadDiff -= Math.PI * 2;
 
-    // 道路と逆を向いた場合のスタック防止
+    // 逆走・旋回スタック検知と脱出
     if (Math.abs(roadDiff) > Math.PI * 0.55) {
       bot.stuckCounter = (bot.stuckCounter || 0) + 1;
       if (bot.stuckCounter > 35) {
@@ -2024,7 +2031,6 @@ function updateBotAI(bot) {
     if (bot.speed < maxSpd) bot.speed += 0.052;
     else bot.speed *= 0.965;
 
-    // チェックポイント判定（距離または順路ベクトル通過）
     const wpIdx = (bot.nextCheckpoint || 0) % n;
     const wp = curPoints[wpIdx] || curPoints[0];
     const prevWp = curPoints[(wpIdx - 1 + n) % n];
