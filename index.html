@@ -125,8 +125,8 @@
     @keyframes titleBounce { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
     @keyframes blink { 0% { opacity: 0.35; } 100% { opacity: 1; } }
 
-    /* メニュー & リザルト */
-    #mode-select-view, #online-lobby-view, #result-view {
+    /* メニュー & リザルト & ランキングモーダル */
+    #mode-select-view, #online-lobby-view, #result-view, #ranking-view {
       background: rgba(15, 23, 42, 0.92);
       backdrop-filter: blur(8px);
     }
@@ -158,7 +158,7 @@
     .pick-btn { background: #334155; border: 2px solid transparent; border-radius: 12px; padding: 6px 0; font-size: 1.35rem; cursor: pointer; color: #fff; }
     .pick-btn.active { border-color: #38bdf8; background: #0284c7; }
 
-    .course-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px; }
+    .course-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 8px; }
     .course-btn {
       background: #334155;
       border: 2px solid transparent;
@@ -175,6 +175,24 @@
       transition: all 0.1s ease;
     }
     .course-btn.active { border-color: #facc15; background: #854d0e; box-shadow: 0 0 12px rgba(250, 204, 21, 0.4); }
+
+    .btn-view-leaderboard {
+      width: 100%;
+      background: rgba(250, 204, 21, 0.15);
+      border: 1px solid #facc15;
+      color: #facc15;
+      padding: 7px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 900;
+      cursor: pointer;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-view-leaderboard:active { background: #facc15; color: #0f172a; }
 
     .mode-btn {
       width: 100%;
@@ -392,7 +410,7 @@
     .lap-row:last-child { border-bottom: none; font-weight: bold; color: #38bdf8; }
     .fastest-tag { background: #facc15; color: #0f172a; padding: 1px 4px; border-radius: 4px; font-weight: 900; font-size: 0.65rem; margin-left: 4px; }
 
-    /* オンラインランキング表示エリア */
+    /* ランキング表示枠 */
     .ranking-box {
       width: 100%;
       background: #0b1120;
@@ -412,8 +430,8 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       padding-bottom: 4px;
     }
-    .ranking-list { list-style: none; font-size: 0.72rem; max-height: 95px; overflow-y: auto; }
-    .ranking-item { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+    .ranking-list { list-style: none; font-size: 0.72rem; max-height: 100px; overflow-y: auto; }
+    .ranking-item { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
     .ranking-item:last-child { border-bottom: none; }
     .rank-num { font-weight: 900; color: #facc15; width: 22px; }
 
@@ -529,9 +547,39 @@
         <button class="course-btn" data-cid="mansion">👻 お化け屋敷</button>
       </div>
 
+      <!-- メニューから全国ランキングを見るボタン -->
+      <button class="btn-view-leaderboard" id="btn-open-ranking">🏆 コース別ランキングを見る</button>
+
       <button class="mode-btn btn-solo" id="btn-mode-solo">⏱️ 1人で走る（タイムアタック）</button>
       <button class="mode-btn btn-cpu" id="btn-mode-cpu">🤖 CPU対戦（あなた vs CPU4台）</button>
       <button class="mode-btn btn-online" id="btn-mode-online">🌐 2人対戦（2人 ＋ CPU3台）</button>
+    </div>
+  </div>
+
+  <!-- ランキング閲覧専用モーダル -->
+  <div id="ranking-view" class="overlay-view hidden">
+    <div class="card">
+      <h2>LEADERBOARD 🏆</h2>
+      <p>コースをタップして全国TOP 5記録を確認</p>
+
+      <div class="course-pick">
+        <button class="course-btn active" data-rcid="classic">🏁 クラシック</button>
+        <button class="course-btn" data-rcid="desert">🏜️ 砂漠</button>
+        <button class="course-btn" data-rcid="ocean">🌊 南国の海</button>
+        <button class="course-btn" data-rcid="mansion">👻 お化け屋敷</button>
+      </div>
+
+      <div class="ranking-box" style="margin-top:6px;">
+        <div class="ranking-header">
+          <span>🏆 全国TOP 5</span>
+          <span id="menu-ranking-course-label">🏁 クラシック</span>
+        </div>
+        <ul class="ranking-list" id="menu-ranking-list-body" style="max-height:140px;">
+          <li style="color:#94a3b8; text-align:center; padding:8px 0;">読み込み中...</li>
+        </ul>
+      </div>
+
+      <button class="mode-btn btn-back" id="btn-close-ranking">◀ メニューに戻る</button>
     </div>
   </div>
 
@@ -621,7 +669,7 @@
 
 <script>
 // ==========================================
-// 0. Firebase オンラインランキング初期化
+// 0. Firebase オンラインランキング（自己ベスト1人1件更新制）
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyDrDq3mHKVJQSSU18d7C26xdBfCkqaa-P8",
@@ -642,32 +690,51 @@ try {
   console.warn("Firebase init error:", e);
 }
 
-// ランキング登録
+// 端末固有キーの管理
+function getPlayerUid() {
+  let uid = localStorage.getItem("nakata_kart_uid");
+  if (!uid) {
+    uid = "u_" + Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+    localStorage.setItem("nakata_kart_uid", uid);
+  }
+  return uid;
+}
+
+// 自己ベスト更新制（同名・同一端末の重複登録を防止）
 function submitOnlineScore(courseKey, playerName, totalMs) {
   if (!db) return Promise.reject(new Error("Database not ready"));
   const cleanName = (playerName || "名無し").trim().slice(0, 8);
-  const recordRef = db.ref(`rankings/${courseKey}`).push();
-  return recordRef.set({
-    name: cleanName,
-    time: totalMs,
-    timestamp: Date.now()
+  const uid = getPlayerUid();
+  const playerRecordRef = db.ref(`rankings/${courseKey}/${uid}`);
+
+  return playerRecordRef.once("value").then(snap => {
+    const existing = snap.val();
+    if (!existing || totalMs < existing.time) {
+      // 過去の自分の記録より速い場合、または初回登録の場合のみ保存
+      return playerRecordRef.set({
+        name: cleanName,
+        time: totalMs,
+        timestamp: Date.now()
+      }).then(() => ({ updated: true, isNewBest: true }));
+    } else {
+      // タイムが自己ベストに届かなかった場合
+      return { updated: false, isNewBest: false, bestTime: existing.time };
+    }
   });
 }
 
-// ランキングTOP 5取得
-function loadOnlineRanking(courseKey) {
-  const listEl = document.getElementById("ranking-list-body");
-  const labelEl = document.getElementById("ranking-course-label");
+// 指定したUL要素へTOP5を描画する汎用ローダー
+function renderLeaderboard(courseKey, listEl, labelEl) {
   const curCourse = COURSES[courseKey] || COURSES.classic;
   if (labelEl) labelEl.textContent = curCourse.name;
   if (!listEl) return;
 
   if (!db) {
-    listEl.innerHTML = '<li style="color:#ef4444; text-align:center;">オフライン中</li>';
+    listEl.innerHTML = '<li style="color:#ef4444; text-align:center; padding:6px 0;">オフライン中</li>';
     return;
   }
 
-  listEl.innerHTML = '<li style="color:#94a3b8; text-align:center; padding:4px 0;">読み込み中...</li>';
+  listEl.innerHTML = '<li style="color:#94a3b8; text-align:center; padding:6px 0;">読み込み中...</li>';
 
   db.ref(`rankings/${courseKey}`)
     .orderByChild("time")
@@ -676,7 +743,7 @@ function loadOnlineRanking(courseKey) {
     .then(snap => {
       listEl.innerHTML = "";
       if (!snap.exists()) {
-        listEl.innerHTML = '<li style="color:#94a3b8; text-align:center; padding:4px 0;">まだ記録がありません！</li>';
+        listEl.innerHTML = '<li style="color:#94a3b8; text-align:center; padding:6px 0;">まだ記録がありません！</li>';
         return;
       }
       let rank = 1;
@@ -684,13 +751,13 @@ function loadOnlineRanking(courseKey) {
         const data = child.val();
         const li = document.createElement("li");
         li.className = "ranking-item";
-        li.innerHTML = `<span><span class="rank-num">${rank}.</span>${escapeHtml(data.name)}</span><span>${formatTime(data.time)}</span>`;
+        li.innerHTML = `<span><span class="rank-num">${rank}.</span>${escapeHtml(data.name)}</span><span style="font-weight:bold; color:#38bdf8;">${formatTime(data.time)}</span>`;
         listEl.appendChild(li);
         rank++;
       });
     })
     .catch(() => {
-      listEl.innerHTML = '<li style="color:#ef4444; text-align:center;">取得エラー</li>';
+      listEl.innerHTML = '<li style="color:#ef4444; text-align:center; padding:6px 0;">取得エラー</li>';
     });
 }
 
@@ -821,7 +888,7 @@ function playCountdownGo() { playTone(880, "triangle", 0.45, 0.35); }
 function playStampPop() { playTone(880, "sine", 0.15, 0.2); }
 
 // ==========================================
-// 2. カート＆4コース構成（カーブ増量・完全無交差・道路上固定アイテム）
+// 2. カート＆4コース構成
 // ==========================================
 const KARTS = {
   standard:  { name: "クラシック", icon: "🏎️", maxSpeed: 2.3, accelRate: 0.035, turnSpeed: 0.024, friction: 0.985 },
@@ -877,23 +944,23 @@ const COURSES = {
     curb: "#f59e0b",
     particleChar: "✨",
     points: [
-      { x: 500,  y: 2050 }, // 0: スタート
-      { x: 1100, y: 2050 }, // 1
-      { x: 1500, y: 1800 }, // 2: 砂丘S字1
-      { x: 1900, y: 2200 }, // 3: 砂丘S字2
-      { x: 2400, y: 1850 }, // 4: 砂丘S字3
-      { x: 2900, y: 2150 }, // 5: オアシスアプローチ
-      { x: 3300, y: 1750 }, // 6: オアシス大回り
-      { x: 3050, y: 1300 }, // 7: ヘアピン
-      { x: 3350, y: 850 },  // 8: 遺跡クランク1
-      { x: 2850, y: 550 },  // 9: 遺跡クランク2
-      { x: 2300, y: 800 },  // 10: ワインディング
-      { x: 1800, y: 450 },  // 11
-      { x: 1300, y: 700 },  // 12: 内周S字
-      { x: 800,  y: 450 },  // 13
-      { x: 400,  y: 850 },  // 14: 西ターン
-      { x: 850,  y: 1250 }, // 15: 中道クランク
-      { x: 450,  y: 1600 }  // 16: 最終コーナー
+      { x: 500,  y: 2050 },
+      { x: 1100, y: 2050 },
+      { x: 1500, y: 1800 },
+      { x: 1900, y: 2200 },
+      { x: 2400, y: 1850 },
+      { x: 2900, y: 2150 },
+      { x: 3300, y: 1750 },
+      { x: 3050, y: 1300 },
+      { x: 3350, y: 850 },
+      { x: 2850, y: 550 },
+      { x: 2300, y: 800 },
+      { x: 1800, y: 450 },
+      { x: 1300, y: 700 },
+      { x: 800,  y: 450 },
+      { x: 400,  y: 850 },
+      { x: 850,  y: 1250 },
+      { x: 450,  y: 1600 }
     ],
     sectors: [
       { x: 3300, y: 1750, r: 500, id: 1 },
@@ -963,30 +1030,30 @@ const COURSES = {
     curb: "#a855f7",
     particleChar: "🟣",
     points: [
-      { x: 500,  y: 2100 }, // 0: スタート
-      { x: 1200, y: 2100 }, // 1
-      { x: 1800, y: 2100 }, // 2: 南ストレート
-      { x: 2400, y: 2200 }, // 3: 南東アプローチ
-      { x: 3000, y: 2000 }, // 4: コーナー1
-      { x: 3300, y: 1600 }, // 5: 東ヘアピン1
-      { x: 2700, y: 1600 }, // 6: ヘアピン折り返し
-      { x: 2600, y: 1250 }, // 7: 東ヘアピン2
-      { x: 3200, y: 1200 }, // 8: ヘアピン折り返し
-      { x: 3200, y: 800 },  // 9: 東ヘアピン3
-      { x: 2700, y: 700 },  // 10
-      { x: 2900, y: 400 },  // 11: 北東コーナー
-      { x: 2200, y: 400 },  // 12: 北クランク1
-      { x: 2200, y: 750 },  // 13: クランク落とし
-      { x: 1700, y: 750 },  // 14: クランク横
-      { x: 1700, y: 400 },  // 15: クランク上げ
-      { x: 1100, y: 400 },  // 16: クランク2
-      { x: 1100, y: 750 },  // 17
-      { x: 600,  y: 750 },  // 18: 北西コーナー
-      { x: 400,  y: 1100 }, // 19: 西ヘアピン
-      { x: 850,  y: 1300 }, // 20: 西S字スネーク
-      { x: 450,  y: 1550 }, // 21
-      { x: 800,  y: 1800 }, // 22: 最終シケイン
-      { x: 400,  y: 1850 }  // 23: 最終コーナー（ゴールへ直結）
+      { x: 500,  y: 2100 },
+      { x: 1200, y: 2100 },
+      { x: 1800, y: 2100 },
+      { x: 2400, y: 2200 },
+      { x: 3000, y: 2000 },
+      { x: 3300, y: 1600 },
+      { x: 2700, y: 1600 },
+      { x: 2600, y: 1250 },
+      { x: 3200, y: 1200 },
+      { x: 3200, y: 800 },
+      { x: 2700, y: 700 },
+      { x: 2900, y: 400 },
+      { x: 2200, y: 400 },
+      { x: 2200, y: 750 },
+      { x: 1700, y: 750 },
+      { x: 1700, y: 400 },
+      { x: 1100, y: 400 },
+      { x: 1100, y: 750 },
+      { x: 600,  y: 750 },
+      { x: 400,  y: 1100 },
+      { x: 850,  y: 1300 },
+      { x: 450,  y: 1550 },
+      { x: 800,  y: 1800 },
+      { x: 400,  y: 1850 }
     ],
     sectors: [
       { x: 3300, y: 1600, r: 500, id: 1 },
@@ -1266,6 +1333,7 @@ const titleView = document.getElementById("title-view");
 const modeSelectView = document.getElementById("mode-select-view");
 const onlineLobbyView = document.getElementById("online-lobby-view");
 const resultView = document.getElementById("result-view");
+const rankingView = document.getElementById("ranking-view");
 const raceUI = document.getElementById("race-ui");
 const finishBanner = document.getElementById("finish-banner");
 const countdownOverlay = document.getElementById("countdown-overlay");
@@ -1313,12 +1381,40 @@ document.querySelectorAll(".pick-btn").forEach(btn => {
   });
 });
 
-document.querySelectorAll(".course-btn").forEach(btn => {
+document.querySelectorAll("#mode-select-view .course-btn").forEach(btn => {
   bindButtonAction(btn, () => {
-    document.querySelectorAll(".course-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("#mode-select-view .course-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     switchCourse(btn.dataset.cid);
   });
+});
+
+// ランキング閲覧モーダル内でのコース切り替え
+document.querySelectorAll("#ranking-view .course-btn").forEach(btn => {
+  bindButtonAction(btn, () => {
+    document.querySelectorAll("#ranking-view .course-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const rcid = btn.dataset.rcid;
+    renderLeaderboard(rcid, document.getElementById("menu-ranking-list-body"), document.getElementById("menu-ranking-course-label"));
+  });
+});
+
+// メインメニューからランキングを開く
+bindButtonAction(document.getElementById("btn-open-ranking"), () => {
+  modeSelectView.classList.add("hidden");
+  rankingView.classList.remove("hidden");
+  
+  // 現在選んでいるコースのボタンをアクティブにして取得
+  document.querySelectorAll("#ranking-view .course-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.rcid === currentCourseKey);
+  });
+  renderLeaderboard(currentCourseKey, document.getElementById("menu-ranking-list-body"), document.getElementById("menu-ranking-course-label"));
+});
+
+// ランキングを閉じてメニューへ戻る
+bindButtonAction(document.getElementById("btn-close-ranking"), () => {
+  rankingView.classList.add("hidden");
+  modeSelectView.classList.remove("hidden");
 });
 
 bindButtonAction(document.getElementById("btn-mode-solo"), () => { gameMode = "SOLO"; startActualRace(); });
@@ -1371,7 +1467,7 @@ bindButtonAction(document.getElementById("btn-result-menu"), () => {
   setupAttractDemo();
 });
 
-// オンラインランキング登録ボタン
+// オンラインランキング登録（自己ベスト更新判定付き）
 bindButtonAction(document.getElementById("btn-submit-score"), () => {
   const nameInput = document.getElementById("player-name-input");
   const msgEl = document.getElementById("ranking-msg");
@@ -1385,10 +1481,14 @@ bindButtonAction(document.getElementById("btn-submit-score"), () => {
 
   if (msgEl) { msgEl.style.color = "#38bdf8"; msgEl.textContent = "タイムを送信中..."; }
   submitOnlineScore(currentCourseKey, name, totalMs)
-    .then(() => {
-      if (msgEl) { msgEl.style.color = "#4ade80"; msgEl.textContent = "ランキングに登録されました！🎉"; }
+    .then(res => {
+      if (res.isNewBest) {
+        if (msgEl) { msgEl.style.color = "#4ade80"; msgEl.textContent = "自己ベスト更新！登録完了🎉"; }
+      } else {
+        if (msgEl) { msgEl.style.color = "#facc15"; msgEl.textContent = `過去の自己ベスト(${formatTime(res.bestTime)})を維持しました！`; }
+      }
       document.getElementById("submit-score-section").style.display = "none";
-      loadOnlineRanking(currentCourseKey);
+      renderLeaderboard(currentCourseKey, document.getElementById("ranking-list-body"), document.getElementById("ranking-course-label"));
     })
     .catch(() => {
       if (msgEl) { msgEl.style.color = "#ef4444"; msgEl.textContent = "送信に失敗しました。"; }
@@ -1452,6 +1552,7 @@ function startActualRace() {
   modeSelectView.classList.add("hidden");
   onlineLobbyView.classList.add("hidden");
   resultView.classList.add("hidden");
+  rankingView.classList.add("hidden");
   finishBanner.classList.remove("show");
   raceUI.classList.remove("hidden");
   setupRacersForMode(gameMode);
@@ -1976,17 +2077,16 @@ function triggerPlayerGoal() {
     const totalMs = lapDurations.reduce((a, b) => a + b, 0);
     if (tt) tt.textContent = formatTime(totalMs);
 
-    // オンラインランキング入力欄と一覧の更新
+    // リザルト画面のランキング送信UI準備
     document.getElementById("submit-score-section").style.display = "flex";
     const msgEl = document.getElementById("ranking-msg");
     if (msgEl) msgEl.textContent = "";
-    loadOnlineRanking(currentCourseKey);
+    renderLeaderboard(currentCourseKey, document.getElementById("ranking-list-body"), document.getElementById("ranking-course-label"));
 
     resultView.classList.remove("hidden");
   }, 1400);
 }
 
-// ボット進行用：現在のWPへ向かうセグメント限定の厳格な追従探索
 function getRoadProjectionLocal(px, py, hintWpIdx) {
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const points = curCourse.points;
@@ -2111,7 +2211,6 @@ function getHomingTarget(owner) {
   return aheadTarget || nearestTarget;
 }
 
-// CPUのAI制御（大幅遅れ時のラバーバンド・猛追ブースト搭載）
 function updateBotAI(bot) {
   if (isCountingDown) return;
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
@@ -2167,12 +2266,12 @@ function updateBotAI(bot) {
     const botProgress = getRaceProgress(bot);
     const lagDist = playerProgress - botProgress;
 
-    // ラバーバンド：大きく遅れたCPUを猛追速化！
+    // 大幅遅れ時のラバーバンド急追ブースト
     if (lagDist > 150) maxSpd *= 1.15;
     if (lagDist > 300) {
-      maxSpd *= 1.35; // 猛追モード
+      maxSpd *= 1.35;
       if (frameCount % 120 === 0 && bot.boostTimer <= 0) {
-        bot.boostTimer = 40; // 自動ロケットダッシュ
+        bot.boostTimer = 40;
       }
     }
 
