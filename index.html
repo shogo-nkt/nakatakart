@@ -957,10 +957,10 @@ const remotePlayer = {
 };
 
 const CPU_PRESETS = [
-  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 1.94, steerAggro: 0.028 },
-  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.09, steerAggro: 0.025 },
-  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 1.79, steerAggro: 0.032 },
-  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 1.89, steerAggro: 0.026 }
+  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.22, steerAggro: 0.032 },
+  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.40, steerAggro: 0.029 },
+  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 2.08, steerAggro: 0.035 },
+  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 2.16, steerAggro: 0.030 }
 ];
 
 let activeBots = [];
@@ -1514,7 +1514,7 @@ function useItem() {
         immunityTimer: 15,
         x: player.x + Math.cos(player.angle) * 35, y: player.y + Math.sin(player.angle) * 35,
         vx: Math.cos(player.angle) * 5.2, vy: Math.sin(player.angle) * 5.2,
-        speed: 5.2, turnRate: 0.14, radius: 18, life: 240, trailTimer: 0
+        speed: 6.0, turnRate: 0.12, radius: 18, life: 240, trailTimer: 0, launchTimer: 18, spin: 0
       };
       worldObjects.push(obj);
       // 発射時の「ブワッ！」演出
@@ -1858,11 +1858,11 @@ function updateBotAI(bot) {
       bot.speed += 0.06;
     }
 
-    if (target.edgeDist > ROAD_WIDTH * 0.42) maxSpd *= 0.78;
-    if (target.edgeDist > ROAD_WIDTH * 0.49) maxSpd *= 0.62;
-    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) maxSpd *= 0.72;
+    if (target.edgeDist > ROAD_WIDTH * 0.42) maxSpd *= 0.88;
+    if (target.edgeDist > ROAD_WIDTH * 0.49) maxSpd *= 0.74;
+    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) maxSpd *= 0.82;
 
-    if (bot.speed < maxSpd) bot.speed += 0.03;
+    if (bot.speed < maxSpd) bot.speed += 0.04;
     else bot.speed *= 0.94;
 
     const wpIdx = (bot.nextCheckpoint || 0) % curPoints.length;
@@ -1883,7 +1883,7 @@ function updateBotAI(bot) {
     while (diff < -Math.PI) diff += Math.PI * 2;
     while (diff > Math.PI) diff -= Math.PI * 2;
     bot.angle += Math.max(-bot.steerAggro * 1.8, Math.min(bot.steerAggro * 1.8, diff));
-    bot.speed *= 0.88;
+    bot.speed *= 0.92;
   }
 
   checkRacerLap(bot, false);
@@ -1924,7 +1924,7 @@ function updateBotAI(bot) {
             x: bot.x + Math.cos(bot.angle) * 34,
             y: bot.y + Math.sin(bot.angle) * 34,
             vx: Math.cos(bot.angle) * 4.8, vy: Math.sin(bot.angle) * 4.8,
-            speed: 4.8, turnRate: 0.13, radius: 18, life: 210, trailTimer: 0
+            speed: 5.6, turnRate: 0.11, radius: 18, life: 210, trailTimer: 0, launchTimer: 14, spin: 0
           });
         }
       }
@@ -2200,27 +2200,39 @@ function update() {
       if (!target || target.finished) {
         obj.life = 0;
       } else {
-        const desired = Math.atan2(target.y - obj.y, target.x - obj.x);
-        let diff = desired - Math.atan2(obj.vy, obj.vx);
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        const turn = Math.max(-obj.turnRate, Math.min(obj.turnRate, diff));
-        const currentAngle = Math.atan2(obj.vy, obj.vx) + turn;
-        obj.vx = Math.cos(currentAngle) * obj.speed;
-        obj.vy = Math.sin(currentAngle) * obj.speed;
+        // 発射直後は前方へまっすぐ飛ばす。
+        // すぐにUターンせず「💩を投げた！」と見える時間を確保する。
+        if ((obj.launchTimer || 0) > 0) {
+          obj.launchTimer--;
+          const launchAngle = Math.atan2(obj.vy, obj.vx);
+          obj.vx = Math.cos(launchAngle) * obj.speed;
+          obj.vy = Math.sin(launchAngle) * obj.speed;
+        } else {
+          const desired = Math.atan2(target.y - obj.y, target.x - obj.x);
+          let diff = desired - Math.atan2(obj.vy, obj.vx);
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          const turn = Math.max(-obj.turnRate, Math.min(obj.turnRate, diff));
+          const currentAngle = Math.atan2(obj.vy, obj.vx) + turn;
+          obj.vx = Math.cos(currentAngle) * obj.speed;
+          obj.vy = Math.sin(currentAngle) * obj.speed;
+        }
+
         obj.x += obj.vx;
         obj.y += obj.vy;
         obj.life--;
+        obj.spin = (obj.spin || 0) + 0.35;
 
-        // ホーミング中もウンチの軌跡を表示して、飛んでいることを分かりやすくする。
+        // 飛行中は💨を連続発生。発射直後は少し多めにして勢いを出す。
         obj.trailTimer = (obj.trailTimer || 0) - 1;
         if (obj.trailTimer <= 0) {
           player.particles.push({
-            x: obj.x - obj.vx * 1.5,
-            y: obj.y - obj.vy * 1.5,
-            char: "💨", size: 9 + Math.random() * 4, life: 10
+            x: obj.x - obj.vx * 1.8 + (Math.random() - 0.5) * 5,
+            y: obj.y - obj.vy * 1.8 + (Math.random() - 0.5) * 5,
+            char: Math.random() < 0.75 ? "💨" : "💩",
+            size: 9 + Math.random() * 5, life: 12
           });
-          obj.trailTimer = 4;
+          obj.trailTimer = (obj.launchTimer || 0) > 0 ? 2 : 4;
         }
       }
       if (obj.life <= 0) { worldObjects.splice(i, 1); continue; }
@@ -2533,8 +2545,14 @@ function render() {
   worldObjects.forEach(obj => {
     ctx.save();
     ctx.translate(obj.x, obj.y);
-    if (obj.type === "poop") ctx.rotate(Math.atan2(obj.vy, obj.vx));
-    ctx.font = "26px sans-serif";
+    if (obj.type === "poop") {
+      ctx.rotate(Math.atan2(obj.vy, obj.vx) + (obj.spin || 0));
+      const launchScale = (obj.launchTimer || 0) > 0 ? 1.25 : 1.0;
+      ctx.scale(launchScale, launchScale);
+      ctx.shadowColor = "rgba(0,0,0,0.45)";
+      ctx.shadowBlur = 8;
+    }
+    ctx.font = obj.type === "poop" ? "34px sans-serif" : "26px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     if (obj.type === "apple") ctx.fillText("🍏", 0, 0);
