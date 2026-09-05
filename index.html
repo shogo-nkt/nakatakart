@@ -681,7 +681,7 @@ function playCountdownGo() { playTone(880, "triangle", 0.45, 0.35); }
 function playStampPop() { playTone(880, "sine", 0.15, 0.2); }
 
 // ==========================================
-// 1. カート＆4コース構成（お化け屋敷：無交差＆超テクニカル設計）
+// 1. カート＆4コース構成（カーブ増量・完全無交差・道路上固定アイテム）
 // ==========================================
 const KARTS = {
   standard:  { name: "クラシック", icon: "🏎️", maxSpeed: 2.3, accelRate: 0.035, turnSpeed: 0.024, friction: 0.985 },
@@ -722,12 +722,8 @@ const COURSES = {
       { x: 1000, y: 1650, r: 500, id: 3 },
       { x: 500,  y: 2000, r: 100, id: 0 }
     ],
-    itemLocations: [
-      { x: 1400, y: 2000, angle: 0 },
-      { x: 2950, y: 700,  angle: -Math.PI / 4 },
-      { x: 1200, y: 450,  angle: Math.PI },
-      { x: 1150, y: 1200, angle: Math.PI / 6 }
-    ],
+    // 道路線分インデックス（このセグメントの道路真上にアイテムを生成）
+    itemSegments: [1, 5, 8, 11],
     decorations: [
       { char: "🌳", x: 600, y: 1800 }, { char: "🌲", x: 1600, y: 1850 },
       { char: "🌸", x: 2500, y: 1750 }, { char: "🌳", x: 2600, y: 800 },
@@ -741,47 +737,44 @@ const COURSES = {
     road: "#78350f",
     curb: "#f59e0b",
     particleChar: "✨",
+    // 砂丘S字やワインディングを増やしたリニューアルカーブ
     points: [
-      { x: 500,  y: 2000 },
-      { x: 1200, y: 2000 },
-      { x: 1600, y: 1750 },
-      { x: 2000, y: 2200 },
-      { x: 2500, y: 1850 },
-      { x: 3000, y: 2100 },
-      { x: 3300, y: 1600 },
-      { x: 3000, y: 1100 },
-      { x: 3300, y: 700 },
-      { x: 2600, y: 500 },
-      { x: 2000, y: 600 },
-      { x: 1500, y: 400 },
-      { x: 900,  y: 550 },
-      { x: 500,  y: 850 },
-      { x: 950,  y: 1250 },
-      { x: 400,  y: 1550 }
+      { x: 500,  y: 2050 }, // 0: スタート
+      { x: 1100, y: 2050 }, // 1
+      { x: 1500, y: 1800 }, // 2: 砂丘S字1
+      { x: 1900, y: 2200 }, // 3: 砂丘S字2
+      { x: 2400, y: 1850 }, // 4: 砂丘S字3
+      { x: 2900, y: 2150 }, // 5: オアシスアプローチ
+      { x: 3300, y: 1750 }, // 6: オアシス大回り
+      { x: 3050, y: 1300 }, // 7: ヘアピン
+      { x: 3350, y: 850 },  // 8: 遺跡クランク1
+      { x: 2850, y: 550 },  // 9: 遺跡クランク2
+      { x: 2300, y: 800 },  // 10: ワインディング
+      { x: 1800, y: 450 },  // 11
+      { x: 1300, y: 700 },  // 12: 内周S字
+      { x: 800,  y: 450 },  // 13
+      { x: 400,  y: 850 },  // 14: 西ターン
+      { x: 850,  y: 1250 }, // 15: 中道クランク
+      { x: 450,  y: 1600 }  // 16: 最終コーナー
     ],
     sectors: [
-      { x: 3000, y: 2100, r: 500, id: 1 },
-      { x: 2000, y: 600,  r: 500, id: 2 },
-      { x: 950,  y: 1250, r: 500, id: 3 },
-      { x: 500,  y: 2000, r: 100, id: 0 }
+      { x: 3300, y: 1750, r: 500, id: 1 },
+      { x: 2300, y: 800,  r: 500, id: 2 },
+      { x: 400,  y: 850,   r: 500, id: 3 },
+      { x: 500,  y: 2050, r: 100, id: 0 }
     ],
-    itemLocations: [
-      { x: 1400, y: 1900, angle: 0 },
-      { x: 3150, y: 900,  angle: -Math.PI / 3 },
-      { x: 1750, y: 500,  angle: Math.PI },
-      { x: 700,  y: 1050, angle: Math.PI / 3 }
-    ],
+    itemSegments: [1, 5, 9, 13],
     decorations: [
-      { char: "🐪", x: 800, y: 1800 }, { char: "🌴", x: 1800, y: 1950 },
-      { char: "🏛️", x: 2800, y: 1700 }, { char: "🏺", x: 2800, y: 800 },
-      { char: "🌴", x: 1750, y: 800 },  { char: "🦎", x: 700, y: 700 },
-      { char: "🐪", x: 1200, y: 1400 }
+      { char: "🐪", x: 800, y: 1800 }, { char: "🌴", x: 2100, y: 1950 },
+      { char: "🏛️", x: 3100, y: 1550 }, { char: "🏺", x: 2600, y: 650 },
+      { char: "🌴", x: 1600, y: 600 },  { char: "🦎", x: 600, y: 650 },
+      { char: "🐪", x: 1100, y: 1400 }
     ],
     obstacles: [
-      { type: "cactus", char: "🌵", x: 1650, y: 1950, radius: 20, bounce: true },
-      { type: "cactus", char: "🌵", x: 2450, y: 2050, radius: 20, bounce: true },
-      { type: "tornado", char: "🌪️", x: 3100, y: 1400, radius: 25, moveType: "cross", minX: 2900, maxX: 3300, vx: 1.2 },
-      { type: "scorpion", char: "🦂", x: 1100, y: 480, radius: 18, moveType: "patrol", minX: 1000, maxX: 1300, vx: 0.9 }
+      { type: "cactus", char: "🌵", x: 1500, y: 1950, radius: 20, bounce: true },
+      { type: "cactus", char: "🌵", x: 2400, y: 2000, radius: 20, bounce: true },
+      { type: "tornado", char: "🌪️", x: 3150, y: 1500, radius: 25, moveType: "cross", minX: 2950, maxX: 3350, vx: 1.2 },
+      { type: "scorpion", char: "🦂", x: 1050, y: 550, radius: 18, moveType: "patrol", minX: 950, maxX: 1250, vx: 0.9 }
     ]
   },
   ocean: {
@@ -813,12 +806,7 @@ const COURSES = {
       { x: 1100, y: 1150, r: 500, id: 3 },
       { x: 600,  y: 2100, r: 100, id: 0 }
     ],
-    itemLocations: [
-      { x: 1600, y: 1650, angle: 0 },
-      { x: 3000, y: 1100, angle: -Math.PI / 3 },
-      { x: 1600, y: 550,  angle: Math.PI },
-      { x: 800,  y: 1380, angle: Math.PI / 3 }
-    ],
+    itemSegments: [1, 6, 9, 13],
     decorations: [
       { char: "🐬", x: 900, y: 1900 }, { char: "🏝️", x: 2300, y: 1850 },
       { char: "⛵", x: 3400, y: 1400 }, { char: "🐠", x: 2300, y: 950 },
@@ -869,12 +857,7 @@ const COURSES = {
       { x: 400,  y: 1100, r: 500, id: 3 },
       { x: 500,  y: 2100, r: 100, id: 0 }
     ],
-    itemLocations: [
-      { x: 1500, y: 2100, angle: 0 },
-      { x: 2900, y: 1400, angle: -Math.PI / 2 },
-      { x: 1400, y: 750,  angle: Math.PI },
-      { x: 650,  y: 1450, angle: Math.PI / 3 }
-    ],
+    itemSegments: [1, 6, 14, 20],
     decorations: [
       { char: "🪦", x: 900,  y: 1950 }, { char: "⚰️", x: 2100, y: 1950 },
       { char: "🏰", x: 2200, y: 1200 }, { char: "🕯️", x: 2900, y: 950 },
@@ -902,6 +885,7 @@ let raceSessionId = 0;
 const ambientParticles = [];
 let currentObstacles = [];
 
+// 道路上にアイテムボックスを100%確実に整列配置するビルダー
 function buildStageData(courseKey) {
   raceSessionId++;
   if (itemRouletteTimer) { clearInterval(itemRouletteTimer); itemRouletteTimer = null; }
@@ -911,20 +895,37 @@ function buildStageData(courseKey) {
   itemBoxes = [];
   itemLayoutLap = 1;
   worldObjects.length = 0;
+
   const c = COURSES[courseKey] || COURSES.classic;
-  c.itemLocations.forEach((loc, groupIdx) => {
-    [-45, 0, 45].forEach((offset, subIdx) => {
-      const pAng = loc.angle + Math.PI / 2;
+  const points = c.points;
+  const segs = c.itemSegments || [1, 4, 7, 10];
+
+  segs.forEach((segIdx, groupIdx) => {
+    const p1 = points[segIdx % points.length];
+    const p2 = points[(segIdx + 1) % points.length];
+    // 道路セグメントの中央点（道路の真上）
+    const mx = (p1.x + p2.x) * 0.5;
+    const my = (p1.y + p2.y) * 0.5;
+    const roadAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const perpAngle = roadAngle + Math.PI / 2;
+
+    // 道路幅160pxの内側（中央・左右35px）に整然と3個配置
+    [-35, 0, 35].forEach((offset, subIdx) => {
       itemBoxes.push({
         id: `${groupIdx}-${subIdx}`,
-        x: loc.x + Math.cos(pAng) * offset,
-        y: loc.y + Math.sin(pAng) * offset,
+        baseX: mx + Math.cos(perpAngle) * offset,
+        baseY: my + Math.sin(perpAngle) * offset,
+        x: mx + Math.cos(perpAngle) * offset,
+        y: my + Math.sin(perpAngle) * offset,
+        roadAngle: roadAngle,
+        perpAngle: perpAngle,
         active: true,
         respawnTimer: 0,
         rotOffset: Math.random() * Math.PI * 2
       });
     });
   });
+
   currentObstacles = (c.obstacles || []).map(o => ({ ...o, initialX: o.x, initialY: o.y, angle: 0 }));
 }
 
@@ -1725,21 +1726,16 @@ function updateItemSlotUI() {
   }
 }
 
+// ラップ進行時のアイテム位置微調整（道路中心線の垂直方向にシフト）
 function shiftItemBoxesForLap(lap) {
   if (lap <= 1 || itemLayoutLap >= lap) return;
   itemLayoutLap = lap;
-  const c = COURSES[currentCourseKey] || COURSES.classic;
-  c.itemLocations.forEach((loc, groupIdx) => {
-    [-45, 0, 45].forEach((offset, subIdx) => {
-      const box = itemBoxes.find(b => b.id === `${groupIdx}-${subIdx}`);
-      if (!box) return;
-      const laneShift = ((groupIdx + lap) % 3 - 1) * 28;
-      const pAng = loc.angle + Math.PI / 2;
-      const along = (lap === 2 ? 18 : -18);
-      box.x = loc.x + Math.cos(pAng) * (offset + laneShift) + Math.cos(loc.angle) * along;
-      box.y = loc.y + Math.sin(pAng) * (offset + laneShift) + Math.sin(loc.angle) * along;
-      box.active = true; box.respawnTimer = 0;
-    });
+  itemBoxes.forEach((box, idx) => {
+    const shiftMag = ((idx + lap) % 3 - 1) * 16;
+    box.x = box.baseX + Math.cos(box.perpAngle) * shiftMag;
+    box.y = box.baseY + Math.sin(box.perpAngle) * shiftMag;
+    box.active = true;
+    box.respawnTimer = 0;
   });
 }
 
@@ -1827,7 +1823,6 @@ function triggerPlayerGoal() {
   }, 1400);
 }
 
-// ボット進行用：現在のWPへ向かうセグメント限定の厳格な追従探索
 function getRoadProjectionLocal(px, py, hintWpIdx) {
   const curCourse = COURSES[currentCourseKey] || COURSES.classic;
   const points = curCourse.points;
@@ -1986,7 +1981,6 @@ function updateBotAI(bot) {
     while (roadDiff < -Math.PI) roadDiff += Math.PI * 2;
     while (roadDiff > Math.PI) roadDiff -= Math.PI * 2;
 
-    // 逆走・旋回スタック検知と脱出
     if (Math.abs(roadDiff) > Math.PI * 0.55) {
       bot.stuckCounter = (bot.stuckCounter || 0) + 1;
       if (bot.stuckCounter > 35) {
