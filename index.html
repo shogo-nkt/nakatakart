@@ -99,6 +99,11 @@
     .title-sub { font-size: 1.1rem; font-weight: 800; color: #38bdf8; letter-spacing: 6px; margin-top: 4px; }
     
     .press-start {
+      position: relative;
+      z-index: 2;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(56, 189, 248, 0.25);
       font-size: 1.05rem;
       font-weight: 900;
       letter-spacing: 3px;
@@ -887,13 +892,22 @@ const WORLD_HEIGHT = 2400;
 const ROAD_WIDTH = 160;
 
 let itemBoxes = [];
-const ITEM_TYPES = ["🍏", "🍌", "🍄", "⭐", "🧼", "🌫️", "💩"];
+let itemLayoutLap = 1;
+const ITEM_TYPES = ["🍏", "🍌", "🍄", "⭐", "🧼", "🌫️", "💩", "💩×3", "💩🪤"];
 const worldObjects = [];
+let itemRouletteTimer = null;
+let raceSessionId = 0;
 const ambientParticles = [];
 let currentObstacles = [];
 
 function buildStageData(courseKey) {
+  raceSessionId++;
+  if (itemRouletteTimer) { clearInterval(itemRouletteTimer); itemRouletteTimer = null; }
+  player.heldItem = null;
+  player.isRoulette = false;
+  updateItemSlotUI();
   itemBoxes = [];
+  itemLayoutLap = 1;
   worldObjects.length = 0;
   const c = COURSES[courseKey] || COURSES.classic;
   c.itemLocations.forEach((loc, groupIdx) => {
@@ -929,7 +943,7 @@ const player = {
   face: "😎",
   x: 500, y: 2000,
   angle: 0, speed: 0, steerInput: 0,
-  isDrifting: false, driftCharge: 0,
+  isDrifting: false, driftCharge: 0, driftLevel: 0, nearMissTimer: 0, nearMissCount: 0, slipstreamTimer: 0,
   boostTimer: 0, starTimer: 0, spinTimer: 0, webTimer: 0,
   heldItem: null, isRoulette: false,
   lap: 1, nextCheckpoint: 1,
@@ -988,7 +1002,9 @@ function createBot(preset, startX, startY, initWp = 1) {
     lap: 1, nextCheckpoint: initWp,
     sectorsPassed: new Set(),
     spinTimer: 0, boostTimer: 0, finished: false,
-    heldItem: null, itemCooldown: 120 + Math.floor(Math.random() * 160)
+    personality: ["steady", "aggressive", "item", "blocker"][Math.floor(Math.random()*4)],
+    personalityCooldown: 0,
+    heldItem: null, itemCooldown: 120 + Math.floor(Math.random() * 160), particles: []
   };
 }
 
@@ -1044,8 +1060,24 @@ function setupRacersForMode(mode) {
   player.angle = 0;
   player.starTimer = 0;
   player.boostTimer = 0;
+  finalLapNoticeTimer = 0;
+  finalLapNoticeShown = false;
   player.spinTimer = 0;
   player.webTimer = 0;
+  player.boostTimer = 0;
+  player.starTimer = 0;
+  player.isDrifting = false;
+  player.driftCharge = 0;
+  player.driftLevel = 0;
+  player.nearMissTimer = 0;
+  player.nearMissCount = 0;
+  player.slipstreamTimer = 0;
+  player.steerInput = 0;
+  player.heldItem = null;
+  player.isRoulette = false;
+  player.particles.length = 0;
+  worldObjects.length = 0;
+  updateItemSlotUI();
   player.x = startP.x;
   player.y = startP.y;
 
@@ -1117,13 +1149,21 @@ function unlockTitle(e) {
   safeRun(playTitleJingle);
 }
 
-["click", "touchend", "pointerup"].forEach(evt => {
-  titleView.addEventListener(evt, unlockTitle, { passive: true });
-});
+// タイトル画面は「TAP TO START」自体を確実に操作できるようにする
+const startTapTrigger = document.getElementById("start-tap-trigger");
+if (startTapTrigger) {
+  ["click", "pointerup", "touchend"].forEach(evt => {
+    startTapTrigger.addEventListener(evt, unlockTitle, { passive: false });
+  });
+}
+// ボタン以外をタップしても開始できる従来仕様も維持
+titleView.addEventListener("click", unlockTitle);
 
 function bindButtonAction(el, callback) {
   if (!el) return;
   const handler = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
     if (e && e.stopPropagation) e.stopPropagation();
     callback(e);
   };
@@ -1163,6 +1203,12 @@ bindButtonAction(document.getElementById("btn-back-menu"), () => {
 });
 
 bindButtonAction(document.getElementById("btn-race-exit"), () => {
+  raceSessionId++;
+  if (itemRouletteTimer) { clearInterval(itemRouletteTimer); itemRouletteTimer = null; }
+  worldObjects.length = 0;
+  player.heldItem = null;
+  player.isRoulette = false;
+  updateItemSlotUI();
   stopEngineSoundImmediately();
   raceUI.classList.add("hidden");
   modeSelectView.classList.remove("hidden");
@@ -1176,6 +1222,12 @@ bindButtonAction(document.getElementById("btn-restart-game"), () => {
   startActualRace();
 });
 bindButtonAction(document.getElementById("btn-result-menu"), () => {
+  raceSessionId++;
+  if (itemRouletteTimer) { clearInterval(itemRouletteTimer); itemRouletteTimer = null; }
+  worldObjects.length = 0;
+  player.heldItem = null;
+  player.isRoulette = false;
+  updateItemSlotUI();
   resultView.classList.add("hidden");
   finishBanner.classList.remove("show");
   raceUI.classList.add("hidden");
@@ -1381,8 +1433,13 @@ window.addEventListener("resize", resize);
 resize();
 
 function triggerDriftRelease() {
-  if (player.driftCharge > 50) player.boostTimer = 60;
-  else if (player.driftCharge > 20) player.boostTimer = 30;
+  if (player.driftCharge > 50) { player.boostTimer = 72; player.driftLevel = 3; }
+  else if (player.driftCharge > 20) { player.boostTimer = 42; player.driftLevel = 2; }
+  else if (player.driftCharge > 8) { player.boostTimer = 20; player.driftLevel = 1; }
+  else player.driftLevel = 0;
+  if (player.driftLevel > 0) {
+    player.particles.push({x:player.x,y:player.y,char:player.driftLevel===3?"🔥":player.driftLevel===2?"⚡":"✨",size:player.driftLevel===3?36:28,life:28});
+  }
   player.driftCharge = 0;
 }
 
@@ -1465,9 +1522,13 @@ window.addEventListener("touchcancel", (e) => {
   if (currentScene === "RACING") handleAllTouches(e);
 }, { passive: false });
 
-function useItem() {
+function useItem(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
+  if (e && e.stopPropagation) e.stopPropagation();
   if (currentScene !== "RACING" || isCountingDown || !player.heldItem || player.isRoulette || player.spinTimer > 0) return;
   const itm = player.heldItem;
+  const speedBeforeItem = player.speed;
   player.heldItem = null;
   updateItemSlotUI();
   safeRun(playItemUseSound);
@@ -1482,7 +1543,7 @@ function useItem() {
   } else if (itm === "🍌") {
     const obj = { id, type: "banana", ownerId: player.id, immunityTimer: 90, x: player.x - Math.cos(player.angle) * 45, y: player.y - Math.sin(player.angle) * 45, radius: 16 };
     worldObjects.push(obj);
-    if (conn) conn.send({ type: "spawnItem", obj });
+    if (conn && conn.open) conn.send({ type: "spawnItem", obj });
   } else if (itm === "🍏") {
     const obj = {
       id, type: "apple", ownerId: player.id, immunityTimer: 20,
@@ -1491,7 +1552,7 @@ function useItem() {
       radius: 16, life: 240
     };
     worldObjects.push(obj);
-    if (conn) conn.send({ type: "spawnItem", obj });
+    if (conn && conn.open) conn.send({ type: "spawnItem", obj });
   } else if (itm === "🧼") {
     for (let i = 1; i <= 3; i++) {
       const obj = { 
@@ -1504,30 +1565,24 @@ function useItem() {
         radius: 18 
       };
       worldObjects.push(obj);
-      if (conn) conn.send({ type: "spawnItem", obj });
+      if (conn && conn.open) conn.send({ type: "spawnItem", obj });
     }
-  } else if (itm === "💩") {
-    const target = getHomingTarget(player);
-    if (target) {
+  } else if (itm === "💩" || itm === "💩×3" || itm === "💩🪤") {
+    const count = itm === "💩×3" ? 3 : 1;
+    for (let shot = 0; shot < count; shot++) {
+      const target = getHomingTarget(player);
+      if (!target) continue;
+      const spread = count === 3 ? (shot - 1) * 0.16 : 0;
+      const ang = player.angle + spread;
       const obj = {
-        id, type: "poop", ownerId: player.id, targetId: target.id,
-        immunityTimer: 15,
-        x: player.x + Math.cos(player.angle) * 35, y: player.y + Math.sin(player.angle) * 35,
-        vx: Math.cos(player.angle) * 5.2, vy: Math.sin(player.angle) * 5.2,
-        speed: 6.0, turnRate: 0.12, radius: 18, life: 240, trailTimer: 0, launchTimer: 18, spin: 0
+        id: count === 3 ? `${id}_${shot}` : id, type: itm === "💩🪤" ? "poopMine" : "poop", ownerId: player.id, targetId: target.id,
+        immunityTimer: 15, x: player.x + Math.cos(ang) * 35, y: player.y + Math.sin(ang) * 35,
+        vx: Math.cos(ang) * 5.6, vy: Math.sin(ang) * 5.6, speed: itm === "💩×3" ? 5.8 : 6.0, turnRate: 0.12,
+        radius: 18, life: itm === "💩🪤" ? 260 : 240, trailTimer: 0, launchTimer: 16 + shot * 2, spin: 0, armed: false
       };
       worldObjects.push(obj);
-      // 発射時の「ブワッ！」演出
-      for (let i = 0; i < 5; i++) {
-        player.particles.push({
-          x: player.x - Math.cos(player.angle) * (18 + Math.random() * 12),
-          y: player.y - Math.sin(player.angle) * (18 + Math.random() * 12),
-          char: i % 2 ? "💨" : "💩",
-          size: i % 2 ? 12 : 15,
-          life: 16 + Math.floor(Math.random() * 8)
-        });
-      }
-      if (conn) conn.send({ type: "spawnItem", obj });
+      for (let i = 0; i < 5; i++) player.particles.push({ x: player.x - Math.cos(ang) * (18 + Math.random() * 12), y: player.y - Math.sin(ang) * (18 + Math.random() * 12), char: i % 2 ? "💨" : "💩", size: i % 2 ? 12 : 15, life: 16 + Math.floor(Math.random() * 8) });
+      if (conn && conn.open) conn.send({ type: "spawnItem", obj });
     }
   } else if (itm === "🌫️") {
     for (let i = 0; i < 8; i++) {
@@ -1537,11 +1592,24 @@ function useItem() {
         char: "🌫️", size: 28, life: 45
       });
     }
-    if (conn) conn.send({ type: "smokeAttack" });
+    if (conn && conn.open) conn.send({ type: "smokeAttack" });
+  }
+
+  // アイテム使用そのものでは速度を落とさない。
+  // 💩を投げた瞬間に停止したように見える問題を防ぐ。
+  if (currentScene === "RACING" && !player.finished && player.spinTimer <= 0) {
+    player.speed = Math.max(player.speed, speedBeforeItem);
   }
 }
 
 bindButtonAction(itemSlotEl, useItem);
+if (itemSlotEl) {
+  itemSlotEl.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    e.stopPropagation();
+  }, { passive: false });
+}
 
 const keys = {};
 window.addEventListener("keydown", (e) => {
@@ -1587,20 +1655,40 @@ function isOffRoad(px, py) {
   return Math.sqrt(minD) > (ROAD_WIDTH / 2);
 }
 
+function getPlayerRankSafe() {
+  const racers = [player, ...activeBots];
+  if (gameMode === "ONLINE_2P" && remotePlayer.connected) racers.push(remotePlayer);
+  racers.sort((a,b) => getRaceProgress(b) - getRaceProgress(a));
+  return racers.indexOf(player) + 1 || 1;
+}
+
 function triggerItemRoulette() {
-  if (player.heldItem || player.isRoulette) return;
+  if (player.heldItem || player.isRoulette || currentScene !== "RACING") return;
   player.isRoulette = true;
+  const session = raceSessionId;
   itemSlotEl.classList.remove("empty");
   safeRun(playItemGetSound);
 
   let c = 0;
-  const timer = setInterval(() => {
+  if (itemRouletteTimer) clearInterval(itemRouletteTimer);
+  itemRouletteTimer = setInterval(() => {
+    if (session !== raceSessionId || currentScene !== "RACING") {
+      clearInterval(itemRouletteTimer);
+      itemRouletteTimer = null;
+      player.isRoulette = false;
+      player.heldItem = null;
+      updateItemSlotUI();
+      return;
+    }
     itemSlotEl.textContent = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
     safeRun(playRouletteTickSound);
     c++;
     if (c > 12) {
-      clearInterval(timer);
-      player.heldItem = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+      clearInterval(itemRouletteTimer);
+      itemRouletteTimer = null;
+      const rankForItem = getPlayerRankSafe();
+      const weightedItems = rankForItem >= 4 ? ["🍏","🍌","🍄","⭐","🧼","🌫️","💩","💩×3","💩🪤","⭐"] : rankForItem === 3 ? ["🍏","🍌","🍄","⭐","🧼","🌫️","💩","💩×3"] : rankForItem === 2 ? ["🍏","🍌","🍄","⭐","🧼","💩"] : ["🍏","🍌","🧼","💩"];
+      player.heldItem = weightedItems[Math.floor(Math.random() * weightedItems.length)];
       player.isRoulette = false;
       safeRun(playItemDecideSound);
       updateItemSlotUI();
@@ -1616,6 +1704,24 @@ function updateItemSlotUI() {
     itemSlotEl.classList.add("empty");
     itemSlotEl.textContent = "📦";
   }
+}
+
+function shiftItemBoxesForLap(lap) {
+  if (lap <= 1 || itemLayoutLap >= lap) return;
+  itemLayoutLap = lap;
+  const c = COURSES[currentCourseKey] || COURSES.classic;
+  c.itemLocations.forEach((loc, groupIdx) => {
+    [-45, 0, 45].forEach((offset, subIdx) => {
+      const box = itemBoxes.find(b => b.id === `${groupIdx}-${subIdx}`);
+      if (!box) return;
+      const laneShift = ((groupIdx + lap) % 3 - 1) * 28;
+      const pAng = loc.angle + Math.PI / 2;
+      const along = (lap === 2 ? 18 : -18);
+      box.x = loc.x + Math.cos(pAng) * (offset + laneShift) + Math.cos(loc.angle) * along;
+      box.y = loc.y + Math.sin(pAng) * (offset + laneShift) + Math.sin(loc.angle) * along;
+      box.active = true; box.respawnTimer = 0;
+    });
+  });
 }
 
 function formatTime(ms) {
@@ -1651,6 +1757,7 @@ function checkRacerLap(racer, isPlayer = false) {
 
       racer.lap++;
       racer.sectorsPassed.clear();
+      if (racer.lap <= 3) shiftItemBoxesForLap(racer.lap);
 
       if (isPlayer) {
         const lapEl = document.getElementById("lap-val");
@@ -1734,7 +1841,16 @@ function getSmoothBotTarget(bot) {
   const segmentDx = b.x - a.x;
   const segmentDy = b.y - a.y;
   const segmentLen = Math.hypot(segmentDx, segmentDy) || 1;
-  const lookAhead = Math.min(150, Math.max(55, bot.speed * 34 + 45));
+  // 高速CPUほど先を見すぎると、急カーブでコース外へ飛び出す。
+  // 現在区間と次区間の曲がり角を見て、急カーブでは先読みを短くする。
+  const next = points[(baseIdx + 2) % n];
+  const nextDx = next.x - b.x;
+  const nextDy = next.y - b.y;
+  const nextLen = Math.hypot(nextDx, nextDy) || 1;
+  const dot = (segmentDx * nextDx + segmentDy * nextDy) / (segmentLen * nextLen);
+  const bend = Math.acos(Math.max(-1, Math.min(1, dot)));
+  const bendFactor = bend > 1.15 ? 0.45 : bend > 0.75 ? 0.65 : bend > 0.40 ? 0.82 : 1.0;
+  const lookAhead = Math.min(125, Math.max(45, (bot.speed * 28 + 38) * bendFactor));
   let remaining = (1 - proj.t) * segmentLen + lookAhead;
   let idx = (baseIdx + 1) % n;
   let tx = proj.x;
@@ -1841,6 +1957,14 @@ function updateBotAI(bot) {
     const dx = (target.x + Math.cos(bot.angle + Math.PI / 2) * wobble) - bot.x;
     const dy = (target.y + Math.sin(bot.angle + Math.PI / 2) * wobble) - bot.y;
     const targetAngle = Math.atan2(dy, dx);
+    if (bot.personality === "aggressive") {
+      bot.steerAggro *= 1.03;
+    } else if (bot.personality === "steady") {
+      bot.steerAggro *= 0.99;
+    } else if (bot.personality === "blocker" && Math.abs(getRaceProgress(player) - getRaceProgress(bot)) < 220) {
+      // プレイヤーの少し前を走るときだけライン取りを強める。
+      bot.steerAggro *= 1.015;
+    }
 
     let angleDiff = targetAngle - bot.angle;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
@@ -1858,7 +1982,7 @@ function updateBotAI(bot) {
 
     // 120度を超える「後ろ向き目標」は採用せず、道路方向を優先。
     const steeringDiff = Math.abs(angleDiff) > Math.PI * 0.67 ? roadDiff : angleDiff;
-    const turnBoost = Math.min(1.22, 1 + Math.abs(steeringDiff) * 0.48);
+    const turnBoost = Math.min(1.32, 1 + Math.abs(steeringDiff) * 0.58);
     const steerLimit = bot.steerAggro * turnBoost;
     bot.angle += Math.max(-steerLimit, Math.min(steerLimit, steeringDiff));
 
@@ -1874,9 +1998,21 @@ function updateBotAI(bot) {
       bot.speed += 0.06;
     }
 
-    if (target.edgeDist > ROAD_WIDTH * 0.42) maxSpd *= 0.94;
-    if (target.edgeDist > ROAD_WIDTH * 0.49) maxSpd *= 0.86;
-    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) maxSpd *= 0.90;
+    // 急カーブでは高速のまま突っ込まず、少しだけ減速してラインを維持する。
+    const botProj = getRoadProjection(bot.x, bot.y);
+    const ca = curPoints[botProj.segIdx];
+    const cb = curPoints[(botProj.segIdx + 1) % curPoints.length];
+    const cc = curPoints[(botProj.segIdx + 2) % curPoints.length];
+    const c1x = cb.x - ca.x, c1y = cb.y - ca.y;
+    const c2x = cc.x - cb.x, c2y = cc.y - cb.y;
+    const c1l = Math.hypot(c1x, c1y) || 1, c2l = Math.hypot(c2x, c2y) || 1;
+    const curveAngle = Math.acos(Math.max(-1, Math.min(1, (c1x*c2x + c1y*c2y) / (c1l*c2l))));
+    if (curveAngle > 1.15) maxSpd *= 0.86;
+    else if (curveAngle > 0.75) maxSpd *= 0.92;
+
+    if (target.edgeDist > ROAD_WIDTH * 0.42) maxSpd *= 0.92;
+    if (target.edgeDist > ROAD_WIDTH * 0.49) maxSpd *= 0.82;
+    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) maxSpd *= 0.88;
 
     if (bot.speed < maxSpd) bot.speed += 0.052;
     else bot.speed *= 0.965;
@@ -1901,6 +2037,13 @@ function updateBotAI(bot) {
     bot.speed *= 0.985;
   }
 
+  // CPUにも弱いスリップストリームを与えて、集団がバラけすぎないようにする。
+  for (const r of [player, ...activeBots.filter(x=>x!==bot)]) {
+    if (!r || r.finished) continue;
+    const dxr=r.x-bot.x, dyr=r.y-bot.y; const f=Math.cos(bot.angle)*dxr+Math.sin(bot.angle)*dyr; const side=Math.abs(-Math.sin(bot.angle)*dxr+Math.cos(bot.angle)*dyr);
+    if (f>20 && f<150 && side<38) { bot.speed += 0.006; break; }
+  }
+
   bot.x += Math.cos(bot.angle) * bot.speed;
   bot.y += Math.sin(bot.angle) * bot.speed;
 
@@ -1922,7 +2065,7 @@ function updateBotAI(bot) {
       box.active = false;
       box.respawnTimer = 300;
       if (!bot.heldItem) {
-        const pool = ["🍌", "🍏", "🍄", "🧼", "💩"];
+        const pool = bot.personality === "item" ? ["🍌","🍏","🍄","💩","💩×3","💩🪤"] : ["🍌","🍏","🍄","🧼","💩"];
         bot.heldItem = pool[Math.floor(Math.random() * pool.length)];
         bot.itemCooldown = 140 + Math.floor(Math.random() * 140);
       }
@@ -1944,17 +2087,14 @@ function updateBotAI(bot) {
         worldObjects.push({ id, type: "apple", ownerId: bot.id, immunityTimer: 20, x: bot.x + Math.cos(bot.angle)*35, y: bot.y + Math.sin(bot.angle)*35, vx: Math.cos(bot.angle)*6.8, vy: Math.sin(bot.angle)*6.8, radius: 16, life: 220 });
       } else if (itm === "🍄") {
         bot.boostTimer = 75;
-      } else if (itm === "💩") {
-        const target = getHomingTarget(bot);
-        if (target) {
-          worldObjects.push({
-            id, type: "poop", ownerId: bot.id, targetId: target.id,
-            immunityTimer: 12,
-            x: bot.x + Math.cos(bot.angle) * 34,
-            y: bot.y + Math.sin(bot.angle) * 34,
-            vx: Math.cos(bot.angle) * 4.8, vy: Math.sin(bot.angle) * 4.8,
-            speed: 5.6, turnRate: 0.11, radius: 18, life: 210, trailTimer: 0, launchTimer: 14, spin: 0
-          });
+      } else if (itm === "💩" || itm === "💩×3" || itm === "💩🪤") {
+        const count = itm === "💩×3" ? 3 : 1;
+        for (let shot = 0; shot < count; shot++) {
+          const target = getHomingTarget(bot);
+          if (!target) continue;
+          const spread = count === 3 ? (shot - 1) * 0.14 : 0;
+          const ang = bot.angle + spread;
+          worldObjects.push({ id: count === 3 ? `${id}_${shot}` : id, type: itm === "💩🪤" ? "poopMine" : "poop", ownerId: bot.id, targetId: target.id, immunityTimer: 12, x: bot.x + Math.cos(ang)*34, y: bot.y + Math.sin(ang)*34, vx: Math.cos(ang)*5.4, vy: Math.sin(ang)*5.4, speed: 5.6, turnRate: 0.11, radius: 18, life: 230, trailTimer: 0, launchTimer: 14, spin: 0, armed: false });
         }
       }
     }
@@ -1983,7 +2123,7 @@ function updateBotAI(bot) {
           }
           safeRun(playCrashSound);
           worldObjects.splice(i, 1);
-          if (conn) conn.send({ type: "removeObj", id: obj.id });
+          if (conn && conn.open) conn.send({ type: "removeObj", id: obj.id });
           continue;
         }
       }
@@ -1992,10 +2132,11 @@ function updateBotAI(bot) {
 
     if (obj.ownerId === bot.id && obj.immunityTimer > 0) continue;
     const d = Math.hypot(bot.x - obj.x, bot.y - obj.y);
+    if (obj.type === "poopMine" && !obj.armed) continue;
     if (d < obj.radius + 16) {
       bot.spinTimer = 52;
       worldObjects.splice(i, 1);
-      if (conn) conn.send({ type: "removeObj", id: obj.id });
+      if (conn && conn.open) conn.send({ type: "removeObj", id: obj.id });
     }
   }
 }
@@ -2035,6 +2176,8 @@ function calculateRankings() {
 // 6. メインループ
 // ==========================================
 let frameCount = 0;
+let finalLapNoticeTimer = 0;
+let finalLapNoticeShown = false;
 
 function update() {
   frameCount++;
@@ -2068,6 +2211,30 @@ function update() {
       demoCamera.y += (activeBots[1].y - demoCamera.y) * 0.05;
     }
     return;
+  }
+
+  // 最終ラップ開始時に「FINAL LAP」を一度だけ表示。数秒後に自動で消える。
+  const playerProgressNow = getRaceProgress(player);
+  const finalLapStarted = player.lap >= 3;
+  let finalEl = document.getElementById("final-battle-hud");
+  if (finalLapStarted && !finalLapNoticeShown) {
+    finalLapNoticeShown = true;
+    finalLapNoticeTimer = 180; // 約3秒（60fps想定）
+  }
+  if (!finalEl && finalLapStarted) {
+    finalEl = document.createElement("div");
+    finalEl.id="final-battle-hud";
+    finalEl.textContent="🔥 FINAL LAP! 🔥";
+    Object.assign(finalEl.style,{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",fontSize:"clamp(22px,6vw,54px)",fontWeight:"900",color:"#fff",textShadow:"0 0 14px #f00,0 3px 8px #000",zIndex:"9999",pointerEvents:"none",opacity:"0",transition:"opacity .2s"});
+    document.body.appendChild(finalEl);
+  }
+  if (finalEl) {
+    if (finalLapNoticeTimer > 0) {
+      finalLapNoticeTimer--;
+      finalEl.style.opacity = finalLapNoticeTimer < 25 ? String(finalLapNoticeTimer / 25) : "1";
+    } else {
+      finalEl.style.opacity = "0";
+    }
   }
 
   const cfg = KARTS[myKartKey];
@@ -2154,6 +2321,38 @@ function update() {
     stopEngineSoundImmediately();
   } else {
     updateEngineSound(player.speed, cfg.maxSpeed);
+  }
+
+  // スリップストリーム：前方の相手の真後ろに入ると少しずつ加速。
+  let draftTarget = null;
+  let draftDist = 9999;
+  for (const r of [remotePlayer.connected ? remotePlayer : null, ...activeBots]) {
+    if (!r || r.finished) continue;
+    const dxr = r.x - player.x, dyr = r.y - player.y;
+    const distR = Math.hypot(dxr,dyr);
+    const forward = Math.cos(player.angle)*dxr + Math.sin(player.angle)*dyr;
+    const side = Math.abs(-Math.sin(player.angle)*dxr + Math.cos(player.angle)*dyr);
+    if (forward > 20 && forward < 180 && side < 42 && distR < draftDist) { draftTarget = r; draftDist = distR; }
+  }
+  if (draftTarget && player.speed > 0.8 && player.spinTimer <= 0) {
+    player.slipstreamTimer++;
+    if (player.slipstreamTimer > 18) {
+      player.speed += 0.012;
+      if (player.slipstreamTimer % 8 === 0) player.particles.push({x:player.x-Math.cos(player.angle)*20,y:player.y-Math.sin(player.angle)*20,char:"💨",size:18,life:14});
+      if (player.slipstreamTimer === 55) { player.boostTimer = Math.max(player.boostTimer, 26); player.particles.push({x:player.x,y:player.y,char:"⚡",size:30,life:20}); }
+    }
+  } else { player.slipstreamTimer = 0; }
+
+  // ニアミス：危険をギリギリ回避すると短い加速。
+  if (player.nearMissTimer > 0) player.nearMissTimer--;
+  const nearbyRacers = [remotePlayer.connected ? remotePlayer : null, ...activeBots];
+  for (const r of nearbyRacers) {
+    if (!r || r.finished || r.spinTimer > 0) continue;
+    const nd = Math.hypot(player.x-r.x, player.y-r.y);
+    if (nd > 24 && nd < 54 && player.speed > 1.2 && player.nearMissTimer <= 0) {
+      player.nearMissTimer = 35; player.nearMissCount++; player.boostTimer = Math.max(player.boostTimer, 10);
+      player.particles.push({x:player.x,y:player.y-22,char:"NEAR!",size:18,life:24});
+    }
   }
 
   checkRacerLap(player, true);
@@ -2247,6 +2446,22 @@ function update() {
     if (obj.type === "apple") {
       obj.x += obj.vx; obj.y += obj.vy; obj.life--;
       if (obj.life <= 0) { worldObjects.splice(i, 1); continue; }
+    } else if (obj.type === "poopMine") {
+      obj.life--;
+      if (obj.life <= 0) { worldObjects.splice(i,1); continue; }
+      if (!obj.armed) { obj.immunityTimer--; if (obj.immunityTimer <= 0) obj.armed = true; }
+      if (obj.armed) {
+        const racersForMine = [player, ...activeBots, ...(remotePlayer.connected ? [remotePlayer] : [])];
+        for (const r of racersForMine) {
+          if (!r || r.id === obj.ownerId || r.finished) continue;
+          if (Math.hypot(r.x-obj.x,r.y-obj.y) < obj.radius+18) {
+            r.spinTimer = 58; r.speed *= 0.35;
+            if (r === player) { player.particles.push({x:r.x,y:r.y,char:"💩",size:38,life:25},{x:r.x,y:r.y,char:"💥",size:32,life:22}); }
+            else if (r.particles) r.particles.push({x:r.x,y:r.y,char:"💩",size:34,life:25},{x:r.x,y:r.y,char:"💥",size:30,life:22});
+            safeRun(playCrashSound); worldObjects.splice(i,1); break;
+          }
+        }
+      }
     } else if (obj.type === "poop") {
       let target = null;
       if (obj.targetId === player.id) target = player;
@@ -2254,7 +2469,9 @@ function update() {
       else target = activeBots.find(b => b.id === obj.targetId) || null;
 
       if (!target || target.finished) {
-        obj.life = 0;
+        // ターゲットが一時的に見つからなくても、投げた直後の💩を即消去しない。
+        // そのまま現在の進行方向へ飛ばして自然に消えるようにする。
+        if ((obj.life || 0) > 45) obj.life = 45;
       } else {
         // 発射直後は前方へまっすぐ飛ばす。
         // すぐにUターンせず「💩を投げた！」と見える時間を確保する。
@@ -2297,13 +2514,13 @@ function update() {
     const isImmune = (obj.ownerId === player.id && obj.immunityTimer > 0);
     const d = Math.hypot(player.x - obj.x, player.y - obj.y);
 
-    const isTargetedPoop = obj.type === "poop" && obj.targetId !== player.id;
+    const isTargetedPoop = (obj.type === "poop" || obj.type === "poopMine") && obj.targetId !== player.id;
     if (!isImmune && !isTargetedPoop && d < obj.radius + 16) {
       if (player.starTimer > 0) {
         safeRun(playCrashSound);
         player.particles.push({ x: obj.x, y: obj.y, char: "✨", size: 30, life: 20 });
         worldObjects.splice(i, 1);
-        if (conn) conn.send({ type: "removeObj", id: obj.id });
+        if (conn && conn.open) conn.send({ type: "removeObj", id: obj.id });
       } else {
         safeRun(playCrashSound);
         player.spinTimer = 52;
@@ -2312,7 +2529,7 @@ function update() {
           player.particles.push({ x: player.x, y: player.y, char: "💥", size: 32, life: 22 });
         }
         worldObjects.splice(i, 1);
-        if (conn) conn.send({ type: "removeObj", id: obj.id });
+        if (conn && conn.open) conn.send({ type: "removeObj", id: obj.id });
       }
     }
 
@@ -2615,6 +2832,7 @@ function render() {
     else if (obj.type === "banana") ctx.fillText("🍌", 0, 0);
     else if (obj.type === "soap") ctx.fillText("🧼", 0, 0);
     else if (obj.type === "poop") ctx.fillText("💩", 0, 0);
+    else if (obj.type === "poopMine") { ctx.font="38px sans-serif"; ctx.fillText("💩",0,0); ctx.font="14px sans-serif"; ctx.fillText("🪤",18,18); }
     ctx.restore();
   });
 
