@@ -957,10 +957,10 @@ const remotePlayer = {
 };
 
 const CPU_PRESETS = [
-  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.22, steerAggro: 0.032 },
-  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.40, steerAggro: 0.029 },
-  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 2.08, steerAggro: 0.035 },
-  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 2.16, steerAggro: 0.030 }
+  { id: "cpu1", name: "Bot 1", face: "🤖", kartKey: "standard",  color: "#eab308", targetSpeed: 2.38, steerAggro: 0.034 },
+  { id: "cpu2", name: "Bot 2", face: "🦊", kartKey: "speedster", color: "#f97316", targetSpeed: 2.58, steerAggro: 0.031 },
+  { id: "cpu3", name: "Bot 3", face: "🐱", kartKey: "scooter",   color: "#a855f7", targetSpeed: 2.28, steerAggro: 0.037 },
+  { id: "cpu4", name: "Bot 4", face: "🐻", kartKey: "tank",      color: "#64748b", targetSpeed: 2.34, steerAggro: 0.032 }
 ];
 
 let activeBots = [];
@@ -1852,18 +1852,23 @@ function updateBotAI(bot) {
     bot.angle += Math.max(-steerLimit, Math.min(steerLimit, angleDiff));
 
     let maxSpd = bot.targetSpeed;
+    // 大きく遅れたCPUだけ少し追い上げる。勝ちやすさを保ちつつ団子を維持。
+    const playerProgress = getRaceProgress(player);
+    const botProgress = getRaceProgress(bot);
+    if (playerProgress - botProgress > 120) maxSpd *= 1.06;
+    if (playerProgress - botProgress > 260) maxSpd *= 1.10;
     if (bot.boostTimer > 0) {
       bot.boostTimer--;
       maxSpd *= 1.35;
       bot.speed += 0.06;
     }
 
-    if (target.edgeDist > ROAD_WIDTH * 0.42) maxSpd *= 0.88;
-    if (target.edgeDist > ROAD_WIDTH * 0.49) maxSpd *= 0.74;
-    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) maxSpd *= 0.82;
+    if (target.edgeDist > ROAD_WIDTH * 0.42) maxSpd *= 0.94;
+    if (target.edgeDist > ROAD_WIDTH * 0.49) maxSpd *= 0.86;
+    if (isOffRoad(bot.x, bot.y) && bot.boostTimer <= 0) maxSpd *= 0.90;
 
-    if (bot.speed < maxSpd) bot.speed += 0.04;
-    else bot.speed *= 0.94;
+    if (bot.speed < maxSpd) bot.speed += 0.052;
+    else bot.speed *= 0.965;
 
     const wpIdx = (bot.nextCheckpoint || 0) % curPoints.length;
     const wp = curPoints[wpIdx] || curPoints[0];
@@ -1883,7 +1888,7 @@ function updateBotAI(bot) {
     while (diff < -Math.PI) diff += Math.PI * 2;
     while (diff > Math.PI) diff -= Math.PI * 2;
     bot.angle += Math.max(-bot.steerAggro * 1.8, Math.min(bot.steerAggro * 1.8, diff));
-    bot.speed *= 0.92;
+    bot.speed *= 0.96;
   }
 
   checkRacerLap(bot, false);
